@@ -16,19 +16,35 @@ let package = Package(
     targets: [
         .target(
             name: "UmbraScaleSupport",
-            path: "UmbraScale/MenuBar",
+            path: "UmbraScale",
             exclude: [
-                "ConnectionTransitionGate.swift",
-                "ScaleHUDCompactContent.swift",
-                "ScaleHUDExpandedContent.swift",
-                "ScaleHUDRootView.swift",
-                "ScaleHUDSections.swift",
-                "ScaleHUDWindowController.swift",
-                "ScaleMenuBarContent.swift",
-                "ScaleMenuBarController.swift"
+                "Assets.xcassets",
+                "Bluetooth/AcaiaScaleManager.swift",
+                "Bluetooth/AcaiaBLEUUIDs.swift",
+                "Bluetooth/AcaiaProtocol.swift",
+                "Bluetooth/AcaiaScaleState.swift",
+                "Bluetooth/AcaiaWeightParser.swift",
+                "ContentView.swift",
+                "MenuBar/ConnectionTransitionGate.swift",
+                "MenuBar/ScaleHUDCompactContent.swift",
+                "MenuBar/ScaleHUDExpandedContent.swift",
+                "MenuBar/ScaleHUDRootView.swift",
+                "MenuBar/ScaleHUDSections.swift",
+                "MenuBar/ScaleHUDWindowController.swift",
+                "MenuBar/ScaleMenuBarContent.swift",
+                "MenuBar/ScaleMenuBarController.swift",
+                "Models/DiscoveredScale.swift",
+                "Models/ScaleReading.swift",
+                "UmbraScaleApp.swift",
+                "UmbraScale.entitlements"
             ],
             sources: [
-                "ScaleHUDMode.swift"
+                "Bluetooth/BLELogger.swift",
+                "FellowSupport/FellowKettleCLIRequest.swift",
+                "FellowSupport/FellowKettleMode.swift",
+                "FellowSupport/FellowKettleParser.swift",
+                "FellowSupport/FellowKettleSnapshot.swift",
+                "MenuBar/ScaleHUDMode.swift"
             ]
         ),
         .testTarget(
@@ -39,6 +55,7 @@ let package = Package(
                 "AcaiaPhase1Tests.swift"
             ],
             sources: [
+                "FellowKettleSupportTests.swift",
                 "ScaleHUDPresentationTests.swift"
             ]
         )
