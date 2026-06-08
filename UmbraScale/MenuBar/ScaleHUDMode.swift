@@ -35,7 +35,7 @@ struct ScaleHUDPresentationState: Equatable {
             return .showCenteredAndActivate(mode: .compact)
         }
 
-        if !isConnected && (wasConnected || isHUDVisible) {
+        if wasConnected && !isConnected {
             isHUDVisible = false
             return .dismissHUD
         }

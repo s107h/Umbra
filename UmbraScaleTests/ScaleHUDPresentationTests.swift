@@ -13,11 +13,30 @@ struct ScaleHUDPresentationTests {
     }
 
     @Test func disconnectDismissesVisibleHUD() {
-        var state = ScaleHUDPresentationState(isHUDVisible: true, mode: .expanded)
+        var state = ScaleHUDPresentationState(wasConnected: true, isHUDVisible: true, mode: .expanded)
 
         let action = state.handleConnectionChange(isConnected: false)
 
         #expect(action == .dismissHUD)
+        #expect(!state.isHUDVisible)
+    }
+
+    @Test func repeatedConnectedStateDoesNothingAfterInitialShow() {
+        var state = ScaleHUDPresentationState(wasConnected: true, isHUDVisible: true, mode: .compact)
+
+        let action = state.handleConnectionChange(isConnected: true)
+
+        #expect(action == .none)
+        #expect(state.isHUDVisible)
+        #expect(state.mode == .compact)
+    }
+
+    @Test func repeatedDisconnectedStateDoesNothing() {
+        var state = ScaleHUDPresentationState()
+
+        let action = state.handleConnectionChange(isConnected: false)
+
+        #expect(action == .none)
         #expect(!state.isHUDVisible)
     }
 
@@ -27,6 +46,17 @@ struct ScaleHUDPresentationTests {
         let action = state.openExpandedFromPopup()
 
         #expect(action == .showCenteredAndActivate(mode: .expanded))
+        #expect(state.isHUDVisible)
+        #expect(state.mode == .expanded)
+    }
+
+    @Test func staleDisconnectedUpdateDoesNotDismissPopupOpenedHUD() {
+        var state = ScaleHUDPresentationState()
+        _ = state.openExpandedFromPopup()
+
+        let action = state.handleConnectionChange(isConnected: false)
+
+        #expect(action == .none)
         #expect(state.isHUDVisible)
         #expect(state.mode == .expanded)
     }
