@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import UmbraScaleSupport
+@testable import FellowKettleSupport
 
 struct FellowKettleSupportTests {
     @Test func requestEncodesStateCommand() throws {

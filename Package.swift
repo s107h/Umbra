@@ -11,6 +11,10 @@ let package = Package(
         .library(
             name: "UmbraScaleSupport",
             targets: ["UmbraScaleSupport"]
+        ),
+        .library(
+            name: "FellowKettleSupport",
+            targets: ["FellowKettleSupport"]
         )
     ],
     targets: [
@@ -25,6 +29,10 @@ let package = Package(
                 "Bluetooth/AcaiaScaleState.swift",
                 "Bluetooth/AcaiaWeightParser.swift",
                 "Bluetooth/BLELogger.swift",
+                "FellowSupport/FellowKettleCLIRequest.swift",
+                "FellowSupport/FellowKettleMode.swift",
+                "FellowSupport/FellowKettleParser.swift",
+                "FellowSupport/FellowKettleSnapshot.swift",
                 "ContentView.swift",
                 "MenuBar/ConnectionTransitionGate.swift",
                 "MenuBar/ScaleHUDCompactContent.swift",
@@ -40,11 +48,31 @@ let package = Package(
                 "UmbraScale.entitlements"
             ],
             sources: [
+                "MenuBar/ScaleHUDMode.swift"
+            ]
+        ),
+        .target(
+            name: "FellowKettleSupport",
+            path: "UmbraScale",
+            exclude: [
+                "Assets.xcassets",
+                "Bluetooth/AcaiaScaleManager.swift",
+                "Bluetooth/AcaiaBLEUUIDs.swift",
+                "Bluetooth/AcaiaProtocol.swift",
+                "Bluetooth/AcaiaScaleState.swift",
+                "Bluetooth/AcaiaWeightParser.swift",
+                "Bluetooth/BLELogger.swift",
+                "ContentView.swift",
+                "MenuBar",
+                "Models",
+                "UmbraScaleApp.swift",
+                "UmbraScale.entitlements"
+            ],
+            sources: [
                 "FellowSupport/FellowKettleCLIRequest.swift",
                 "FellowSupport/FellowKettleMode.swift",
                 "FellowSupport/FellowKettleParser.swift",
-                "FellowSupport/FellowKettleSnapshot.swift",
-                "MenuBar/ScaleHUDMode.swift"
+                "FellowSupport/FellowKettleSnapshot.swift"
             ]
         ),
         .testTarget(
@@ -52,11 +80,23 @@ let package = Package(
             dependencies: ["UmbraScaleSupport"],
             path: "UmbraScaleTests",
             exclude: [
-                "AcaiaPhase1Tests.swift"
+                "AcaiaPhase1Tests.swift",
+                "FellowKettleSupportTests.swift"
             ],
             sources: [
-                "FellowKettleSupportTests.swift",
                 "ScaleHUDPresentationTests.swift"
+            ]
+        ),
+        .testTarget(
+            name: "FellowKettleSupportTests",
+            dependencies: ["FellowKettleSupport"],
+            path: "UmbraScaleTests",
+            exclude: [
+                "AcaiaPhase1Tests.swift",
+                "ScaleHUDPresentationTests.swift"
+            ],
+            sources: [
+                "FellowKettleSupportTests.swift"
             ]
         )
     ]
