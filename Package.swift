@@ -24,6 +24,7 @@ let package = Package(
                 "Bluetooth/AcaiaProtocol.swift",
                 "Bluetooth/AcaiaScaleState.swift",
                 "Bluetooth/AcaiaWeightParser.swift",
+                "Bluetooth/BLELogger.swift",
                 "ContentView.swift",
                 "MenuBar/ConnectionTransitionGate.swift",
                 "MenuBar/ScaleHUDCompactContent.swift",
@@ -39,7 +40,6 @@ let package = Package(
                 "UmbraScale.entitlements"
             ],
             sources: [
-                "Bluetooth/BLELogger.swift",
                 "FellowSupport/FellowKettleCLIRequest.swift",
                 "FellowSupport/FellowKettleMode.swift",
                 "FellowSupport/FellowKettleParser.swift",
