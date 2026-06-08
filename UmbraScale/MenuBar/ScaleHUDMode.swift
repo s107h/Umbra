@@ -50,6 +50,10 @@ struct ScaleHUDPresentationState: Equatable {
     }
 
     mutating func toggleExpandedMode() -> ScaleHUDPresentationAction {
+        guard isHUDVisible else {
+            return .none
+        }
+
         mode = mode == .compact ? .expanded : .compact
         return .resizeHUD(mode: mode)
     }

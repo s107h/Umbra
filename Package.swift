@@ -16,29 +16,15 @@ let package = Package(
     targets: [
         .target(
             name: "UmbraScaleSupport",
-            path: "UmbraScale",
-            exclude: [
-                "Assets.xcassets",
-                "Bluetooth",
-                "ContentView.swift",
-                "MenuBar/ConnectionTransitionGate.swift",
-                "MenuBar/ScaleMenuBarContent.swift",
-                "MenuBar/ScaleMenuBarController.swift",
-                "Models",
-                "UmbraScale.entitlements",
-                "UmbraScaleApp.swift"
-            ],
+            path: "PackageSupport/UmbraScaleSupport",
             sources: [
-                "MenuBar/ScaleHUDMode.swift"
+                "ScaleHUDMode.swift"
             ]
         ),
         .testTarget(
             name: "UmbraScaleSupportTests",
             dependencies: ["UmbraScaleSupport"],
-            path: "UmbraScaleTests",
-            exclude: [
-                "AcaiaPhase1Tests.swift"
-            ],
+            path: "PackageSupport/UmbraScaleSupportTests",
             sources: [
                 "ScaleHUDPresentationTests.swift"
             ]

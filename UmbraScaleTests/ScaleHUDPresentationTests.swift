@@ -67,4 +67,13 @@ struct ScaleHUDPresentationTests {
         #expect(state.toggleExpandedMode() == .resizeHUD(mode: .expanded))
         #expect(state.toggleExpandedMode() == .resizeHUD(mode: .compact))
     }
+
+    @Test func hiddenHUDToggleDoesNothing() {
+        var state = ScaleHUDPresentationState(isHUDVisible: false, mode: .compact)
+
+        let action = state.toggleExpandedMode()
+
+        #expect(action == .none)
+        #expect(state.mode == .compact)
+    }
 }
