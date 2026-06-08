@@ -7,7 +7,7 @@ enum ScaleHUDMode: Equatable {
     var contentSize: CGSize {
         switch self {
         case .compact:
-            CGSize(width: 280, height: 180)
+            CGSize(width: 340, height: 180)
         case .expanded:
             CGSize(width: 760, height: 620)
         }

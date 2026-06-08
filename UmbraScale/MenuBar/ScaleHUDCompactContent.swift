@@ -7,8 +7,11 @@ struct ScaleHUDCompactContent: View {
     var body: some View {
         VStack(spacing: 18) {
             Text(scale.isConnected ? String(format: "%.1f g", scale.displayedReading.grams) : "Disconnected")
-                .font(.system(size: 42, weight: .bold, design: .rounded))
+                .font(.system(size: scale.isConnected ? 42 : 34, weight: .bold, design: .rounded))
                 .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .allowsTightening(true)
                 .frame(maxWidth: .infinity, alignment: .center)
 
             HStack {

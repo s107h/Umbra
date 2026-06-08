@@ -8,8 +8,11 @@ struct ScaleMenuBarContent: View {
     var body: some View {
         VStack(spacing: 18) {
             Text(scale.isConnected ? String(format: "%.1f g", scale.displayedReading.grams) : "Disconnected")
-                .font(.system(size: 30, weight: .semibold, design: .rounded))
+                .font(.system(size: scale.isConnected ? 30 : 28, weight: .semibold, design: .rounded))
                 .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .allowsTightening(true)
                 .frame(maxWidth: .infinity, alignment: .center)
 
             HStack {
@@ -22,6 +25,6 @@ struct ScaleMenuBarContent: View {
             }
         }
         .padding(16)
-        .frame(width: 220)
+        .frame(width: 250)
     }
 }
