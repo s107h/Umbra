@@ -19,6 +19,11 @@ let package = Package(
             path: "UmbraScale/MenuBar",
             exclude: [
                 "ConnectionTransitionGate.swift",
+                "ScaleHUDCompactContent.swift",
+                "ScaleHUDExpandedContent.swift",
+                "ScaleHUDRootView.swift",
+                "ScaleHUDSections.swift",
+                "ScaleHUDWindowController.swift",
                 "ScaleMenuBarContent.swift",
                 "ScaleMenuBarController.swift"
             ],

@@ -8,17 +8,14 @@
 import SwiftUI
 
 struct ContentView: View {
+    @ObservedObject var scale: AcaiaScaleManager
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        ScaleHUDExpandedContent(scale: scale, onToggleGear: {})
+        .padding(24)
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView(scale: AcaiaScaleManager())
 }
