@@ -16,7 +16,12 @@ let package = Package(
     targets: [
         .target(
             name: "UmbraScaleSupport",
-            path: "PackageSupport/UmbraScaleSupport",
+            path: "UmbraScale/MenuBar",
+            exclude: [
+                "ConnectionTransitionGate.swift",
+                "ScaleMenuBarContent.swift",
+                "ScaleMenuBarController.swift"
+            ],
             sources: [
                 "ScaleHUDMode.swift"
             ]
@@ -24,7 +29,10 @@ let package = Package(
         .testTarget(
             name: "UmbraScaleSupportTests",
             dependencies: ["UmbraScaleSupport"],
-            path: "PackageSupport/UmbraScaleSupportTests",
+            path: "UmbraScaleTests",
+            exclude: [
+                "AcaiaPhase1Tests.swift"
+            ],
             sources: [
                 "ScaleHUDPresentationTests.swift"
             ]
