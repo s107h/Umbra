@@ -7,7 +7,7 @@ public struct FellowKettleCLIRequest: Equatable {
         case heatOff
         case setTargetCelsius(Double)
 
-        var rawValue: String {
+        func rawValue() throws -> String {
             switch self {
             case .state:
                 return "state"
@@ -16,6 +16,9 @@ public struct FellowKettleCLIRequest: Equatable {
             case .heatOff:
                 return "setstate S_Off"
             case .setTargetCelsius(let celsius):
+                guard celsius.isFinite else {
+                    throw URLError(.badURL)
+                }
                 let fahrenheit = Int((celsius * 1.8 + 32).rounded())
                 return "setsetting settempr \(fahrenheit)"
             }
@@ -38,8 +41,9 @@ public struct FellowKettleCLIRequest: Equatable {
         }
 
         components.path = "/cli"
+        let commandValue = try command.rawValue()
         components.queryItems = [
-            URLQueryItem(name: "cmd", value: command.rawValue)
+            URLQueryItem(name: "cmd", value: commandValue)
         ]
 
         guard let url = components.url else {

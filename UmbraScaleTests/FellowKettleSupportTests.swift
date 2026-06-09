@@ -26,6 +26,15 @@ struct FellowKettleSupportTests {
         #expect(url.absoluteString == "http://192.168.1.8/cli?cmd=setsetting%20settempr%20205")
     }
 
+    @Test func requestRejectsNonFiniteTargetTemperature() {
+        #expect(throws: URLError.self) {
+            try FellowKettleCLIRequest(
+                baseURLString: "http://kettle.local",
+                command: .setTargetCelsius(.infinity)
+            ).url()
+        }
+    }
+
     @Test func requestRejectsBareHostString() {
         #expect(throws: URLError.self) {
             try FellowKettleCLIRequest(baseURLString: "kettle.local", command: .state).url()
