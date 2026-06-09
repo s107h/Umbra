@@ -67,12 +67,12 @@ public enum FellowKettleParser {
             throw ParseError.missingMode
         }
 
-        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
+        let tokens = rawValue.split(whereSeparator: \.isWhitespace)
+        guard tokens.count == 1, let token = tokens.first else {
             throw ParseError.invalidMode
         }
 
-        return trimmed
+        return String(token)
     }
 
     private static func fieldValue(for label: String, in body: String) -> String? {

@@ -24,7 +24,13 @@ public struct FellowKettleCLIRequest: Equatable {
                 guard celsius.isFinite else {
                     throw RequestError.invalidTargetTemperature
                 }
-                let fahrenheit = Int((celsius * 1.8 + 32).rounded())
+                let fahrenheitValue = (celsius * 1.8 + 32).rounded()
+                guard fahrenheitValue.isFinite,
+                      fahrenheitValue >= Double(Int.min),
+                      fahrenheitValue <= Double(Int.max) else {
+                    throw RequestError.invalidTargetTemperature
+                }
+                let fahrenheit = Int(fahrenheitValue)
                 return "setsetting settempr \(fahrenheit)"
             }
         }

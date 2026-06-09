@@ -35,6 +35,15 @@ struct FellowKettleSupportTests {
         }
     }
 
+    @Test func requestRejectsOversizedFiniteTargetTemperature() {
+        #expect(throws: FellowKettleCLIRequest.RequestError.invalidTargetTemperature) {
+            try FellowKettleCLIRequest(
+                baseURLString: "http://kettle.local",
+                command: .setTargetCelsius(1e100)
+            ).url()
+        }
+    }
+
     @Test func requestRejectsBareHostString() {
         #expect(throws: FellowKettleCLIRequest.RequestError.invalidBaseURL) {
             try FellowKettleCLIRequest(baseURLString: "kettle.local", command: .state).url()
@@ -156,6 +165,13 @@ struct FellowKettleSupportTests {
 
     @Test func parserThrowsWhenModeIsMalformed() {
         let body = "tempr=50.0 C\ntemprT=95.0 C\nmode=   "
+        #expect(throws: FellowKettleParser.ParseError.invalidMode) {
+            try FellowKettleParser.parseState(body)
+        }
+    }
+
+    @Test func parserRejectsModeWithWhitespaceSuffixJunk() {
+        let body = "tempr=50.0 C\ntemprT=95.0 C\nmode=S_Heat extra"
         #expect(throws: FellowKettleParser.ParseError.invalidMode) {
             try FellowKettleParser.parseState(body)
         }
