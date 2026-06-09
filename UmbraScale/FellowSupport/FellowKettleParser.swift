@@ -41,22 +41,21 @@ public enum FellowKettleParser {
             throw invalidError
         }
 
-        if tokens.count > 2 {
+        guard tokens.count == 2 else {
             throw invalidError
         }
 
-        if tokens.count == 2 {
-            let unit = tokens[1].uppercased()
-            guard unit == "F" || unit == "C" else {
+        let unit = tokens[1].uppercased()
+        guard unit == "F" || unit == "C" else {
+            throw invalidError
+        }
+
+        if unit == "F" {
+            let converted = (numeric - 32) / 1.8
+            guard converted.isFinite else {
                 throw invalidError
             }
-            if unit == "F" {
-                let converted = (numeric - 32) / 1.8
-                guard converted.isFinite else {
-                    throw invalidError
-                }
-                return converted
-            }
+            return converted
         }
 
         return numeric
