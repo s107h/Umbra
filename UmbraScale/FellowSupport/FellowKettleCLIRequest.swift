@@ -1,6 +1,11 @@
 import Foundation
 
 public struct FellowKettleCLIRequest: Equatable {
+    public enum RequestError: Error, Equatable {
+        case invalidBaseURL
+        case invalidTargetTemperature
+    }
+
     public enum Command: Equatable {
         case state
         case heatOn
@@ -17,7 +22,7 @@ public struct FellowKettleCLIRequest: Equatable {
                 return "setstate S_Off"
             case .setTargetCelsius(let celsius):
                 guard celsius.isFinite else {
-                    throw URLError(.badURL)
+                    throw RequestError.invalidTargetTemperature
                 }
                 let fahrenheit = Int((celsius * 1.8 + 32).rounded())
                 return "setsetting settempr \(fahrenheit)"
@@ -37,7 +42,7 @@ public struct FellowKettleCLIRequest: Equatable {
         guard var components = URLComponents(string: baseURLString),
               components.scheme != nil,
               components.host != nil else {
-            throw URLError(.badURL)
+            throw RequestError.invalidBaseURL
         }
 
         components.path = "/cli"
@@ -47,7 +52,7 @@ public struct FellowKettleCLIRequest: Equatable {
         ]
 
         guard let url = components.url else {
-            throw URLError(.badURL)
+            throw RequestError.invalidBaseURL
         }
         return url
     }

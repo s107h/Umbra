@@ -27,7 +27,7 @@ struct FellowKettleSupportTests {
     }
 
     @Test func requestRejectsNonFiniteTargetTemperature() {
-        #expect(throws: URLError.self) {
+        #expect(throws: FellowKettleCLIRequest.RequestError.invalidTargetTemperature) {
             try FellowKettleCLIRequest(
                 baseURLString: "http://kettle.local",
                 command: .setTargetCelsius(.infinity)
@@ -36,7 +36,7 @@ struct FellowKettleSupportTests {
     }
 
     @Test func requestRejectsBareHostString() {
-        #expect(throws: URLError.self) {
+        #expect(throws: FellowKettleCLIRequest.RequestError.invalidBaseURL) {
             try FellowKettleCLIRequest(baseURLString: "kettle.local", command: .state).url()
         }
     }
@@ -67,6 +67,20 @@ struct FellowKettleSupportTests {
         #expect(snapshot.currentTemperatureCelsius == 50.0)
         #expect(snapshot.targetTemperatureCelsius == 100.0)
         #expect(snapshot.mode == .heating)
+    }
+
+    @Test func parserRejectsNonFiniteCurrentTemperature() {
+        let body = "tempr=nan C\ntemprT=95.0 C\nmode=S_Heat"
+        #expect(throws: FellowKettleParser.ParseError.invalidTemperature) {
+            try FellowKettleParser.parseState(body)
+        }
+    }
+
+    @Test func parserRejectsNonFiniteTargetTemperature() {
+        let body = "tempr=50.0 C\ntemprT=inf C\nmode=S_Heat"
+        #expect(throws: FellowKettleParser.ParseError.invalidTargetTemperature) {
+            try FellowKettleParser.parseState(body)
+        }
     }
 
     @Test func parserTreatsOffModeAsOff() throws {

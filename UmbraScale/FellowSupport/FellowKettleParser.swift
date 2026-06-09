@@ -37,6 +37,9 @@ public enum FellowKettleParser {
               let numeric = Double(numericText) else {
             throw invalidError
         }
+        guard numeric.isFinite else {
+            throw invalidError
+        }
 
         if tokens.count > 2 {
             throw invalidError
@@ -48,7 +51,11 @@ public enum FellowKettleParser {
                 throw invalidError
             }
             if unit == "F" {
-                return (numeric - 32) / 1.8
+                let converted = (numeric - 32) / 1.8
+                guard converted.isFinite else {
+                    throw invalidError
+                }
+                return converted
             }
         }
 
