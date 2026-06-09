@@ -112,6 +112,13 @@ struct FellowKettleSupportTests {
         }
     }
 
+    @Test func parserThrowsWhenCurrentTemperatureIsMalformed() {
+        let body = "tempr=abc C\ntemprT=95.0 C\nmode=S_Heat"
+        #expect(throws: FellowKettleParser.ParseError.invalidTemperature) {
+            try FellowKettleParser.parseState(body)
+        }
+    }
+
     @Test func parserThrowsWhenTargetTemperatureIsMissing() {
         let body = "tempr=50.0 C\nmode=S_Heat"
         #expect(throws: FellowKettleParser.ParseError.missingTargetTemperature) {
@@ -119,9 +126,23 @@ struct FellowKettleSupportTests {
         }
     }
 
+    @Test func parserThrowsWhenTargetTemperatureIsMalformed() {
+        let body = "tempr=50.0 C\ntemprT=abc C\nmode=S_Heat"
+        #expect(throws: FellowKettleParser.ParseError.invalidTargetTemperature) {
+            try FellowKettleParser.parseState(body)
+        }
+    }
+
     @Test func parserThrowsWhenStateResponseIsMissingMode() {
         let body = "tempr=50.0 C\ntemprT=95.0 C"
         #expect(throws: FellowKettleParser.ParseError.self) {
+            try FellowKettleParser.parseState(body)
+        }
+    }
+
+    @Test func parserThrowsWhenModeIsMalformed() {
+        let body = "tempr=50.0 C\ntemprT=95.0 C\nmode=   "
+        #expect(throws: FellowKettleParser.ParseError.invalidMode) {
             try FellowKettleParser.parseState(body)
         }
     }
