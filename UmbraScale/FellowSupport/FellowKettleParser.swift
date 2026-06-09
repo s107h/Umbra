@@ -47,7 +47,7 @@ public enum FellowKettleParser {
     }
 
     private static func stringValue(for label: String, in body: String) -> String? {
-        let pattern = #"(?m)^\s*\#(label)\s*=\s*([A-Za-z0-9_]+)\s*$"#
+        let pattern = #"(?m)^\s*\#(label)\s*=\s*(.+?)\s*$"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else {
             return nil
         }
@@ -58,6 +58,6 @@ public enum FellowKettleParser {
             return nil
         }
 
-        return String(body[valueRange])
+        return String(body[valueRange]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

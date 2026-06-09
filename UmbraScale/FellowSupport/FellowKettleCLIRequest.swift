@@ -31,16 +31,16 @@ public struct FellowKettleCLIRequest: Equatable {
     }
 
     public func url() throws -> URL {
-        let normalizedBase = baseURLString.hasSuffix("/") ? String(baseURLString.dropLast()) : baseURLString
-        guard var components = URLComponents(string: normalizedBase + "/cli") else {
+        guard var components = URLComponents(string: baseURLString),
+              components.scheme != nil,
+              components.host != nil else {
             throw URLError(.badURL)
         }
 
-        let encodedCommand = command.rawValue
-            .split(separator: " ")
-            .map { String($0).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? String($0) }
-            .joined(separator: "+")
-        components.percentEncodedQuery = "cmd=\(encodedCommand)"
+        components.path = "/cli"
+        components.queryItems = [
+            URLQueryItem(name: "cmd", value: command.rawValue)
+        ]
 
         guard let url = components.url else {
             throw URLError(.badURL)
