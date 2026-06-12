@@ -1,13 +1,31 @@
 import Combine
 import Foundation
-#if canImport(FellowKettleSupport)
-import FellowKettleSupport
-#endif
 
 @MainActor
 final class FellowKettleManager: ObservableObject {
     private static let hostDefaultsKey = "fellowKettleHost"
     private static let pollInterval: Duration = .seconds(5)
+
+    enum ManagerError: LocalizedError {
+        case noConfiguredHost
+        case invalidResponse
+        case httpStatus(code: Int, body: String)
+
+        var errorDescription: String? {
+            switch self {
+            case .noConfiguredHost:
+                return "No kettle host configured."
+            case .invalidResponse:
+                return "Received an invalid response from the kettle."
+            case .httpStatus(let code, let body):
+                let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmedBody.isEmpty {
+                    return "Kettle request failed with HTTP \(code)."
+                }
+                return "Kettle request failed with HTTP \(code): \(trimmedBody)"
+            }
+        }
+    }
 
     @Published private(set) var state: FellowKettleState
     @Published private(set) var snapshot: FellowKettleSnapshot?
@@ -25,11 +43,11 @@ final class FellowKettleManager: ObservableObject {
         let persistedHost = (defaults.string(forKey: Self.hostDefaultsKey) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         host = persistedHost
-        state = persistedHost.isEmpty ? .unconfigured : .polling(host: persistedHost)
+        state = persistedHost.isEmpty ? .unconfigured : .configured(host: persistedHost)
 
         if !persistedHost.isEmpty {
             logger.log("Loaded Fellow kettle host \(persistedHost)")
-            startPolling()
+            logger.log("Fellow polling is idle until explicit interaction")
         }
     }
 
@@ -48,6 +66,7 @@ final class FellowKettleManager: ObservableObject {
             logger.log("Cleared Fellow kettle host")
         } else {
             defaults.set(trimmedHost, forKey: Self.hostDefaultsKey)
+            state = .configured(host: trimmedHost)
             logger.log("Saved Fellow kettle host \(trimmedHost)")
         }
 
@@ -104,30 +123,35 @@ final class FellowKettleManager: ObservableObject {
     }
 
     func setHeatEnabled(_ enabled: Bool) async {
-        await runCommand(enabled ? .heatOn : .heatOff, label: enabled ? "heat on" : "heat off")
+        do {
+            try await runCommand(enabled ? .heatOn : .heatOff, label: enabled ? "heat on" : "heat off")
+        } catch {
+            logger.log("Fellow heat toggle failed: \(error.localizedDescription)")
+        }
     }
 
     func setTargetTemperature(_ celsius: Double) async {
-        await runCommand(.setTargetCelsius(celsius), label: String(format: "set target %.1fC", celsius))
-        await runCommand(.heatOn, label: "heat on")
+        do {
+            try await runCommand(.setTargetCelsius(celsius), label: String(format: "set target %.1fC", celsius))
+            try await runCommand(.heatOn, label: "heat on")
+        } catch {
+            logger.log("Fellow target update failed: \(error.localizedDescription)")
+        }
     }
 
-    private func runCommand(_ command: FellowKettleCLIRequest.Command, label: String) async {
-        let currentHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !currentHost.isEmpty else {
-            snapshot = nil
-            state = .unconfigured
-            logger.log("Skipped Fellow command \(label): no host configured")
-            return
-        }
+    @discardableResult
+    private func runCommand(_ command: FellowKettleCLIRequest.Command, label: String) async throws -> String {
+        let currentHost = try requireConfiguredHost()
 
         do {
             state = .commandInFlight(host: currentHost, command: label)
-            _ = try await send(command, host: currentHost)
+            let body = try await send(command, host: currentHost)
             await refresh()
+            return body
         } catch {
             state = .error(host: currentHost, message: error.localizedDescription)
             logger.log("Fellow command failed (\(label)) for \(currentHost): \(error.localizedDescription)")
+            throw error
         }
     }
 
@@ -138,13 +162,31 @@ final class FellowKettleManager: ObservableObject {
         logger.log("Fellow request \(url.absoluteString)")
 
         let (data, response) = try await session.data(from: url)
-        if let response = response as? HTTPURLResponse {
-            logger.log("Fellow HTTP \(response.statusCode) from \(url.host(percentEncoded: false) ?? host)")
+        guard let response = response as? HTTPURLResponse else {
+            logger.log("Fellow response was not HTTP")
+            throw ManagerError.invalidResponse
         }
 
         let body = String(decoding: data, as: UTF8.self)
+        logger.log("Fellow HTTP \(response.statusCode) from \(url.host(percentEncoded: false) ?? host)")
         logger.log("Fellow response \(body.replacingOccurrences(of: "\n", with: " "))")
+
+        guard (200...299).contains(response.statusCode) else {
+            throw ManagerError.httpStatus(code: response.statusCode, body: body)
+        }
+
         return body
+    }
+
+    private func requireConfiguredHost() throws -> String {
+        let currentHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !currentHost.isEmpty else {
+            snapshot = nil
+            state = .unconfigured
+            logger.log("Skipped Fellow action: no host configured")
+            throw ManagerError.noConfiguredHost
+        }
+        return currentHost
     }
 
     private func normalizedBaseURL(for host: String) -> String {

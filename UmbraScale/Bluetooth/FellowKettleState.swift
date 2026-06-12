@@ -2,6 +2,7 @@ import Foundation
 
 enum FellowKettleState: Equatable {
     case unconfigured
+    case configured(host: String)
     case polling(host: String)
     case ready(host: String)
     case commandInFlight(host: String, command: String)
@@ -11,6 +12,8 @@ enum FellowKettleState: Equatable {
         switch self {
         case .unconfigured:
             return "Enter kettle host"
+        case .configured(let host):
+            return "Configured host \(host)"
         case .polling(let host):
             return "Polling \(host)..."
         case .ready(let host):
