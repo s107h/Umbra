@@ -3,6 +3,31 @@ import Foundation
 
 @MainActor
 final class FellowKettleManager: ObservableObject {
+    private final class NetworkOperationTicket {
+        private var continuation: CheckedContinuation<Void, Never>?
+        private var isFinished = false
+
+        lazy var completion: Task<Void, Never> = Task {
+            if isFinished {
+                return
+            }
+
+            await withCheckedContinuation { continuation in
+                if self.isFinished {
+                    continuation.resume()
+                } else {
+                    self.continuation = continuation
+                }
+            }
+        }
+
+        func finish() {
+            isFinished = true
+            continuation?.resume()
+            continuation = nil
+        }
+    }
+
     private static let hostDefaultsKey = "fellowKettleHost"
     private static let pollInterval: Duration = .seconds(5)
 
@@ -29,12 +54,14 @@ final class FellowKettleManager: ObservableObject {
 
     @Published private(set) var state: FellowKettleState
     @Published private(set) var snapshot: FellowKettleSnapshot?
+    @Published private(set) var configuredHost: String?
     @Published var host: String
     @Published private(set) var logger = BLELogger()
 
     private let session: URLSession
     private let defaults: UserDefaults
     private var pollingTask: Task<Void, Never>?
+    private var queuedNetworkOperation: NetworkOperationTicket?
 
     init(session: URLSession = .shared, defaults: UserDefaults = .standard) {
         self.session = session
@@ -42,6 +69,7 @@ final class FellowKettleManager: ObservableObject {
 
         let persistedHost = (defaults.string(forKey: Self.hostDefaultsKey) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        configuredHost = persistedHost.isEmpty ? nil : persistedHost
         host = persistedHost
         state = persistedHost.isEmpty ? .unconfigured : .configured(host: persistedHost)
 
@@ -58,13 +86,16 @@ final class FellowKettleManager: ObservableObject {
     func saveHost() {
         let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
         host = trimmedHost
+        stopPolling()
 
         if trimmedHost.isEmpty {
+            configuredHost = nil
             defaults.removeObject(forKey: Self.hostDefaultsKey)
             snapshot = nil
             state = .unconfigured
             logger.log("Cleared Fellow kettle host")
         } else {
+            configuredHost = trimmedHost
             defaults.set(trimmedHost, forKey: Self.hostDefaultsKey)
             state = .configured(host: trimmedHost)
             logger.log("Saved Fellow kettle host \(trimmedHost)")
@@ -74,17 +105,14 @@ final class FellowKettleManager: ObservableObject {
     }
 
     func startPolling() {
-        pollingTask?.cancel()
-        pollingTask = nil
+        stopPolling()
 
-        let currentHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !currentHost.isEmpty else {
+        guard let currentHost = configuredHost, !currentHost.isEmpty else {
             snapshot = nil
             state = .unconfigured
             return
         }
 
-        host = currentHost
         state = .polling(host: currentHost)
         logger.log("Starting Fellow poll loop for \(currentHost)")
 
@@ -104,18 +132,28 @@ final class FellowKettleManager: ObservableObject {
     }
 
     func refresh() async {
-        let currentHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !currentHost.isEmpty else {
+        guard let currentHost = configuredHost, !currentHost.isEmpty else {
             snapshot = nil
             state = .unconfigured
             return
         }
 
         do {
-            state = .polling(host: currentHost)
-            let body = try await send(.state, host: currentHost)
-            snapshot = try FellowKettleParser.parseState(body)
-            state = .ready(host: currentHost)
+            try await withSerializedNetworkOperation { [self] in
+                self.state = .polling(host: currentHost)
+                let body = try await self.send(.state, host: currentHost)
+                let parsedSnapshot = try FellowKettleParser.parseState(body)
+                try Task.checkCancellation()
+
+                guard self.configuredHost == currentHost else {
+                    throw CancellationError()
+                }
+
+                self.snapshot = parsedSnapshot
+                self.state = .ready(host: currentHost)
+            }
+        } catch is CancellationError {
+            return
         } catch {
             state = .error(host: currentHost, message: error.localizedDescription)
             logger.log("Fellow poll failed for \(currentHost): \(error.localizedDescription)")
@@ -125,6 +163,8 @@ final class FellowKettleManager: ObservableObject {
     func setHeatEnabled(_ enabled: Bool) async {
         do {
             try await runCommand(enabled ? .heatOn : .heatOff, label: enabled ? "heat on" : "heat off")
+        } catch is CancellationError {
+            return
         } catch {
             logger.log("Fellow heat toggle failed: \(error.localizedDescription)")
         }
@@ -134,6 +174,8 @@ final class FellowKettleManager: ObservableObject {
         do {
             try await runCommand(.setTargetCelsius(celsius), label: String(format: "set target %.1fC", celsius))
             try await runCommand(.heatOn, label: "heat on")
+        } catch is CancellationError {
+            return
         } catch {
             logger.log("Fellow target update failed: \(error.localizedDescription)")
         }
@@ -144,10 +186,30 @@ final class FellowKettleManager: ObservableObject {
         let currentHost = try requireConfiguredHost()
 
         do {
-            state = .commandInFlight(host: currentHost, command: label)
-            let body = try await send(command, host: currentHost)
-            await refresh()
-            return body
+            return try await withSerializedNetworkOperation { [self] in
+                self.state = .commandInFlight(host: currentHost, command: label)
+                let body = try await self.send(command, host: currentHost)
+                try Task.checkCancellation()
+
+                guard self.configuredHost == currentHost else {
+                    throw CancellationError()
+                }
+
+                self.state = .polling(host: currentHost)
+                let refreshBody = try await self.send(.state, host: currentHost)
+                let parsedSnapshot = try FellowKettleParser.parseState(refreshBody)
+                try Task.checkCancellation()
+
+                guard self.configuredHost == currentHost else {
+                    throw CancellationError()
+                }
+
+                self.snapshot = parsedSnapshot
+                self.state = .ready(host: currentHost)
+                return body
+            }
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             state = .error(host: currentHost, message: error.localizedDescription)
             logger.log("Fellow command failed (\(label)) for \(currentHost): \(error.localizedDescription)")
@@ -179,8 +241,7 @@ final class FellowKettleManager: ObservableObject {
     }
 
     private func requireConfiguredHost() throws -> String {
-        let currentHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !currentHost.isEmpty else {
+        guard let currentHost = configuredHost, !currentHost.isEmpty else {
             snapshot = nil
             state = .unconfigured
             logger.log("Skipped Fellow action: no host configured")
@@ -194,5 +255,34 @@ final class FellowKettleManager: ObservableObject {
             return host
         }
         return "http://\(host)"
+    }
+
+    private func stopPolling() {
+        guard pollingTask != nil else { return }
+        pollingTask?.cancel()
+        pollingTask = nil
+        logger.log("Stopped Fellow poll loop")
+    }
+
+    private func withSerializedNetworkOperation<T>(
+        _ operation: @escaping @MainActor () async throws -> T
+    ) async throws -> T {
+        let previous = queuedNetworkOperation
+        let ticket = NetworkOperationTicket()
+        queuedNetworkOperation = ticket
+
+        if let previous {
+            await previous.completion.value
+        }
+
+        defer {
+            ticket.finish()
+            if queuedNetworkOperation === ticket {
+                queuedNetworkOperation = nil
+            }
+        }
+
+        try Task.checkCancellation()
+        return try await operation()
     }
 }
