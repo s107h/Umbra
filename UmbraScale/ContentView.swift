@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var scale: AcaiaScaleManager
+    @ObservedObject var kettle: FellowKettleManager
 
     var body: some View {
         ScaleHUDExpandedContent(scale: scale, onToggleGear: {})
@@ -17,5 +18,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(scale: AcaiaScaleManager())
+    ContentView(scale: AcaiaScaleManager(), kettle: FellowKettleManager())
 }
