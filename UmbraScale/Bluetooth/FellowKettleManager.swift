@@ -140,6 +140,7 @@ final class FellowKettleManager: ObservableObject {
         do {
             try await withSerializedNetworkOperation { [self] in
                 self.state = .polling(host: currentHost)
+                try self.requireFreshHost(currentHost)
                 let body = try await self.send(.state, host: currentHost)
                 let parsedSnapshot = try FellowKettleParser.parseState(body)
                 try Task.checkCancellation()
@@ -190,6 +191,7 @@ final class FellowKettleManager: ObservableObject {
         do {
             return try await withSerializedNetworkOperation { [self] in
                 self.state = .commandInFlight(host: currentHost, command: label)
+                try self.requireFreshHost(currentHost)
                 let body = try await self.send(command, host: currentHost)
                 try Task.checkCancellation()
 
@@ -253,6 +255,15 @@ final class FellowKettleManager: ObservableObject {
             throw ManagerError.noConfiguredHost
         }
         return currentHost
+    }
+
+    private func requireFreshHost(_ host: String) throws {
+        try Task.checkCancellation()
+
+        guard configuredHost == host else {
+            logger.log("Skipping Fellow network operation for superseded host \(host)")
+            throw CancellationError()
+        }
     }
 
     nonisolated private static func makeDefaultSession() -> URLSession {
