@@ -3,28 +3,42 @@ import Foundation
 
 @MainActor
 final class FellowKettleManager: ObservableObject {
-    private final class NetworkOperationTicket {
-        private var continuation: CheckedContinuation<Void, Never>?
-        private var isFinished = false
+    private actor NetworkOperationGate {
+        private var isHeld = false
+        private var waiters: [CheckedContinuation<Void, Never>] = []
 
-        lazy var completion: Task<Void, Never> = Task {
-            if isFinished {
+        func run<T>(_ operation: @MainActor @escaping () async throws -> T) async throws -> T {
+            await acquire()
+
+            do {
+                let result = try await operation()
+                release()
+                return result
+            } catch {
+                release()
+                throw error
+            }
+        }
+
+        private func acquire() async {
+            if !isHeld {
+                isHeld = true
                 return
             }
 
             await withCheckedContinuation { continuation in
-                if self.isFinished {
-                    continuation.resume()
-                } else {
-                    self.continuation = continuation
-                }
+                waiters.append(continuation)
             }
         }
 
-        func finish() {
-            isFinished = true
-            continuation?.resume()
-            continuation = nil
+        private func release() {
+            if waiters.isEmpty {
+                isHeld = false
+                return
+            }
+
+            let next = waiters.removeFirst()
+            next.resume()
         }
     }
 
@@ -59,8 +73,8 @@ final class FellowKettleManager: ObservableObject {
 
     private let session: URLSession
     private let defaults: UserDefaults
+    private let networkOperationGate = NetworkOperationGate()
     private var pollingTask: Task<Void, Never>?
-    private var queuedNetworkOperation: NetworkOperationTicket?
 
     init(session: URLSession = FellowKettleManager.makeDefaultSession(), defaults: UserDefaults = .standard) {
         self.session = session
@@ -139,16 +153,11 @@ final class FellowKettleManager: ObservableObject {
 
         do {
             try await withSerializedNetworkOperation { [self] in
-                self.state = .polling(host: currentHost)
                 try self.requireFreshHost(currentHost)
+                self.state = .polling(host: currentHost)
                 let body = try await self.send(.state, host: currentHost)
                 let parsedSnapshot = try FellowKettleParser.parseState(body)
-                try Task.checkCancellation()
-
-                guard self.configuredHost == currentHost else {
-                    throw CancellationError()
-                }
-
+                try self.requireFreshHost(currentHost)
                 self.snapshot = parsedSnapshot
                 self.state = .ready(host: currentHost)
             }
@@ -190,24 +199,14 @@ final class FellowKettleManager: ObservableObject {
 
         do {
             return try await withSerializedNetworkOperation { [self] in
-                self.state = .commandInFlight(host: currentHost, command: label)
                 try self.requireFreshHost(currentHost)
+                self.state = .commandInFlight(host: currentHost, command: label)
                 let body = try await self.send(command, host: currentHost)
-                try Task.checkCancellation()
-
-                guard self.configuredHost == currentHost else {
-                    throw CancellationError()
-                }
-
+                try self.requireFreshHost(currentHost)
                 self.state = .polling(host: currentHost)
                 let refreshBody = try await self.send(.state, host: currentHost)
                 let parsedSnapshot = try FellowKettleParser.parseState(refreshBody)
-                try Task.checkCancellation()
-
-                guard self.configuredHost == currentHost else {
-                    throw CancellationError()
-                }
-
+                try self.requireFreshHost(currentHost)
                 self.snapshot = parsedSnapshot
                 self.state = .ready(host: currentHost)
                 return body
@@ -304,22 +303,6 @@ final class FellowKettleManager: ObservableObject {
     private func withSerializedNetworkOperation<T>(
         _ operation: @escaping @MainActor () async throws -> T
     ) async throws -> T {
-        let previous = queuedNetworkOperation
-        let ticket = NetworkOperationTicket()
-        queuedNetworkOperation = ticket
-
-        if let previous {
-            await previous.completion.value
-        }
-
-        defer {
-            ticket.finish()
-            if queuedNetworkOperation === ticket {
-                queuedNetworkOperation = nil
-            }
-        }
-
-        try Task.checkCancellation()
-        return try await operation()
+        try await networkOperationGate.run(operation)
     }
 }
