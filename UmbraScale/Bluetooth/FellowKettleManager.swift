@@ -30,7 +30,6 @@ final class FellowKettleManager: ObservableObject {
 
     private static let hostDefaultsKey = "fellowKettleHost"
     private static let pollInterval: Duration = .seconds(5)
-
     enum ManagerError: LocalizedError {
         case noConfiguredHost
         case invalidResponse
@@ -63,7 +62,7 @@ final class FellowKettleManager: ObservableObject {
     private var pollingTask: Task<Void, Never>?
     private var queuedNetworkOperation: NetworkOperationTicket?
 
-    init(session: URLSession = .shared, defaults: UserDefaults = .standard) {
+    init(session: URLSession = FellowKettleManager.makeDefaultSession(), defaults: UserDefaults = .standard) {
         self.session = session
         self.defaults = defaults
 
@@ -155,6 +154,9 @@ final class FellowKettleManager: ObservableObject {
         } catch is CancellationError {
             return
         } catch {
+            guard shouldPublishFailure(for: currentHost, error: error) else {
+                return
+            }
             state = .error(host: currentHost, message: error.localizedDescription)
             logger.log("Fellow poll failed for \(currentHost): \(error.localizedDescription)")
         }
@@ -211,6 +213,9 @@ final class FellowKettleManager: ObservableObject {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            guard shouldPublishFailure(for: currentHost, error: error) else {
+                throw CancellationError()
+            }
             state = .error(host: currentHost, message: error.localizedDescription)
             logger.log("Fellow command failed (\(label)) for \(currentHost): \(error.localizedDescription)")
             throw error
@@ -250,11 +255,32 @@ final class FellowKettleManager: ObservableObject {
         return currentHost
     }
 
+    nonisolated private static func makeDefaultSession() -> URLSession {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 3
+        configuration.timeoutIntervalForResource = 5
+        return URLSession(configuration: configuration)
+    }
+
     private func normalizedBaseURL(for host: String) -> String {
         if host.hasPrefix("http://") || host.hasPrefix("https://") {
             return host
         }
         return "http://\(host)"
+    }
+
+    private func shouldPublishFailure(for host: String, error: Error) -> Bool {
+        if Task.isCancelled || configuredHost != host {
+            logger.log("Ignoring Fellow failure for superseded host \(host)")
+            return false
+        }
+
+        if let urlError = error as? URLError, urlError.code == .cancelled {
+            logger.log("Ignoring cancelled Fellow request for \(host)")
+            return false
+        }
+
+        return true
     }
 
     private func stopPolling() {
