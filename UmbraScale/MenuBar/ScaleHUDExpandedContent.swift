@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ScaleHUDExpandedContent: View {
     @ObservedObject var scale: AcaiaScaleManager
+    @ObservedObject var kettle: FellowKettleManager
     let onToggleGear: () -> Void
 
     var body: some View {
@@ -26,6 +27,7 @@ struct ScaleHUDExpandedContent: View {
 
             ScaleStatusSection(scale: scale)
             ScaleControlsSection(scale: scale)
+            FellowKettleSection(kettle: kettle)
             DiscoveredScalesSection(scale: scale)
             DebugLogSection(scale: scale)
         }

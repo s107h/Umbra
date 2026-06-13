@@ -9,14 +9,16 @@ final class ScaleMenuBarController: NSObject {
     let hostingController: NSHostingController<ScaleMenuBarContent>
 
     private let scale: AcaiaScaleManager
+    private let kettle: FellowKettleManager
     private var presentationState = ScaleHUDPresentationState()
     private var cancellables: Set<AnyCancellable> = []
     private lazy var hudWindowController = ScaleHUDWindowController(
         rootView: makeHUDRootView(mode: presentationState.mode)
     )
 
-    init(scale: AcaiaScaleManager) {
+    init(scale: AcaiaScaleManager, kettle: FellowKettleManager) {
         self.scale = scale
+        self.kettle = kettle
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         popover = NSPopover()
         hostingController = NSHostingController(
@@ -161,6 +163,7 @@ final class ScaleMenuBarController: NSObject {
     private func makeHUDRootView(mode: ScaleHUDMode) -> ScaleHUDRootView {
         ScaleHUDRootView(
             scale: scale,
+            kettle: kettle,
             mode: mode,
             onToggleGear: { [weak self] in
                 self?.toggleHUDMode()

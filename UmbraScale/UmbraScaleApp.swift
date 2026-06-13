@@ -19,7 +19,7 @@ struct UmbraScaleApp: App {
         let kettle = FellowKettleManager()
         _scale = StateObject(wrappedValue: scale)
         _kettle = StateObject(wrappedValue: kettle)
-        menuBarController = ScaleMenuBarController(scale: scale)
+        menuBarController = ScaleMenuBarController(scale: scale, kettle: kettle)
     }
 
     var body: some Scene {

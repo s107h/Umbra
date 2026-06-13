@@ -12,8 +12,8 @@ struct ContentView: View {
     @ObservedObject var kettle: FellowKettleManager
 
     var body: some View {
-        ScaleHUDExpandedContent(scale: scale, onToggleGear: {})
-        .padding(24)
+        ScaleHUDExpandedContent(scale: scale, kettle: kettle, onToggleGear: {})
+            .padding(24)
     }
 }
 
