@@ -109,18 +109,7 @@ struct FellowKettleSection: View {
     private var debugLogDisclosure: some View {
         DisclosureGroup("Debug Log", isExpanded: $isLogExpanded) {
             VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 12) {
-                    Button("Copy Kettle Log") {
-                        copyLogToPasteboard()
-                    }
-                    .disabled(kettle.logger.lines.isEmpty)
-
-                    Button("Clear Kettle Log") {
-                        kettle.logger.clear()
-                    }
-                    .disabled(kettle.logger.lines.isEmpty)
-                }
-
+                FellowKettleLogControls(logger: kettle.logger)
                 FellowKettleLogView(logger: kettle.logger)
             }
             .padding(.top, 8)
@@ -166,12 +155,6 @@ struct FellowKettleSection: View {
         return Self.temperatureString(for: value)
     }
 
-    private func copyLogToPasteboard() {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(kettle.logger.exportText, forType: .string)
-    }
-
     private static func temperatureString(for value: Double?) -> String {
         guard let value else { return "" }
         return String(format: "%.1f °C", value)
@@ -180,6 +163,30 @@ struct FellowKettleSection: View {
     private static func editableTemperatureString(for value: Double?) -> String {
         guard let value else { return "" }
         return String(format: "%.1f", value)
+    }
+}
+
+private struct FellowKettleLogControls: View {
+    @ObservedObject var logger: BLELogger
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button("Copy Kettle Log") {
+                copyLogToPasteboard()
+            }
+            .disabled(logger.lines.isEmpty)
+
+            Button("Clear Kettle Log") {
+                logger.clear()
+            }
+            .disabled(logger.lines.isEmpty)
+        }
+    }
+
+    private func copyLogToPasteboard() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(logger.exportText, forType: .string)
     }
 }
 
