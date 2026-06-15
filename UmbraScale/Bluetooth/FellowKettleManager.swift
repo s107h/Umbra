@@ -1,5 +1,8 @@
 import Combine
 import Foundation
+#if canImport(FellowKettleSupport)
+import FellowKettleSupport
+#endif
 
 @MainActor
 final class FellowKettleManager: ObservableObject {
@@ -7,7 +10,7 @@ final class FellowKettleManager: ObservableObject {
         private var isHeld = false
         private var waiters: [CheckedContinuation<Void, Never>] = []
 
-        func run<T>(_ operation: @MainActor @escaping () async throws -> T) async throws -> T {
+        func run<T: Sendable>(_ operation: @MainActor @escaping () async throws -> T) async throws -> T {
             await acquire()
 
             do {
@@ -98,6 +101,7 @@ final class FellowKettleManager: ObservableObject {
 
     func saveHost() {
         let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        let previousHost = configuredHost
         host = trimmedHost
         stopPolling()
 
@@ -108,6 +112,9 @@ final class FellowKettleManager: ObservableObject {
             state = .unconfigured
             logger.log("Cleared Fellow kettle host")
         } else {
+            if let previousHost, previousHost != trimmedHost {
+                snapshot = nil
+            }
             configuredHost = trimmedHost
             defaults.set(trimmedHost, forKey: Self.hostDefaultsKey)
             state = .configured(host: trimmedHost)
@@ -300,7 +307,7 @@ final class FellowKettleManager: ObservableObject {
         logger.log("Stopped Fellow poll loop")
     }
 
-    private func withSerializedNetworkOperation<T>(
+    private func withSerializedNetworkOperation<T: Sendable>(
         _ operation: @escaping @MainActor () async throws -> T
     ) async throws -> T {
         try await networkOperationGate.run(operation)

@@ -13,6 +13,10 @@ let package = Package(
             targets: ["UmbraScaleSupport"]
         ),
         .library(
+            name: "FellowKettleManagerSupport",
+            targets: ["FellowKettleManagerSupport"]
+        ),
+        .library(
             name: "FellowKettleSupport",
             targets: ["FellowKettleSupport"]
         )
@@ -37,6 +41,16 @@ let package = Package(
             ]
         ),
         .target(
+            name: "FellowKettleManagerSupport",
+            dependencies: ["FellowKettleSupport"],
+            path: "UmbraScale",
+            sources: [
+                "Bluetooth/BLELogger.swift",
+                "Bluetooth/FellowKettleManager.swift",
+                "Bluetooth/FellowKettleState.swift"
+            ]
+        ),
+        .target(
             name: "FellowKettleSupport",
             path: "UmbraScale/FellowSupport",
             sources: [
@@ -47,11 +61,25 @@ let package = Package(
             ]
         ),
         .testTarget(
+            name: "FellowKettleManagerSupportTests",
+            dependencies: ["FellowKettleManagerSupport"],
+            path: "UmbraScaleTests",
+            exclude: [
+                "AcaiaPhase1Tests.swift",
+                "FellowKettleSupportTests.swift",
+                "ScaleHUDPresentationTests.swift"
+            ],
+            sources: [
+                "FellowKettleManagerTests.swift"
+            ]
+        ),
+        .testTarget(
             name: "UmbraScaleSupportTests",
             dependencies: ["UmbraScaleSupport"],
             path: "UmbraScaleTests",
             exclude: [
                 "AcaiaPhase1Tests.swift",
+                "FellowKettleManagerTests.swift",
                 "FellowKettleSupportTests.swift"
             ],
             sources: [
@@ -64,6 +92,7 @@ let package = Package(
             path: "UmbraScaleTests",
             exclude: [
                 "AcaiaPhase1Tests.swift",
+                "FellowKettleManagerTests.swift",
                 "ScaleHUDPresentationTests.swift"
             ],
             sources: [
