@@ -135,18 +135,23 @@ struct FellowKettleSection: View {
     }
 
     private var visibleSnapshot: FellowKettleSnapshot? {
-        guard isReadyForConfiguredHost else { return nil }
+        guard isSnapshotStateForConfiguredHost else { return nil }
         return kettle.snapshot
     }
 
-    private var isReadyForConfiguredHost: Bool {
+    private var isSnapshotStateForConfiguredHost: Bool {
         guard let configuredHost = kettle.configuredHost else { return false }
 
-        guard case .ready(let readyHost) = kettle.state else {
+        switch kettle.state {
+        case .ready(let host),
+             .polling(let host),
+             .commandInFlight(let host, _):
+            return host == configuredHost
+        case .configured,
+             .unconfigured,
+             .error:
             return false
         }
-
-        return readyHost == configuredHost
     }
 
     private var heatStateText: String {
