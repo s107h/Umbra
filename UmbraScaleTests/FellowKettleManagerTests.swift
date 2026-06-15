@@ -85,6 +85,75 @@ struct FellowKettleManagerTests {
 
         await refreshGate.open()
     }
+
+    @Test func refreshRestartsPollingAfterRestoredIdleHost() async throws {
+        let defaults = try TestDefaults.make()
+        defaults.defaults.set("restored.local", forKey: "fellowKettleHost")
+
+        let transport = TestURLProtocol.Transport()
+        let requests = RequestLog()
+        let body = """
+        tempr=61.0 C
+        temprT=95.0 C
+        mode=S_Heat
+        """
+
+        await transport.setHandler(for: "restored.local") { request in
+            await requests.record(request)
+            return TestURLProtocol.httpResponse(body: body)
+        }
+
+        let manager = FellowKettleManager(
+            session: TestURLProtocol.makeSession(transport: transport),
+            defaults: defaults.defaults
+        )
+
+        #expect(manager.configuredHost == "restored.local")
+        #expect(manager.state == .configured(host: "restored.local"))
+        #expect(await requests.count(for: "state") == 0)
+
+        await manager.refresh()
+
+        try await waitUntil { manager.state == .ready(host: "restored.local") }
+        #expect(await requests.count(for: "state") == 1)
+
+        try await waitForRequestCount(requests, command: "state", atLeast: 2, timeoutNanoseconds: 7_000_000_000)
+    }
+
+    @Test func heatCommandRestartsPollingAfterRestoredIdleHost() async throws {
+        let defaults = try TestDefaults.make()
+        defaults.defaults.set("restored.local", forKey: "fellowKettleHost")
+
+        let transport = TestURLProtocol.Transport()
+        let requests = RequestLog()
+        let body = """
+        tempr=62.0 C
+        temprT=96.0 C
+        mode=S_Hold
+        """
+
+        await transport.setHandler(for: "restored.local") { request in
+            await requests.record(request)
+            return TestURLProtocol.httpResponse(body: body)
+        }
+
+        let manager = FellowKettleManager(
+            session: TestURLProtocol.makeSession(transport: transport),
+            defaults: defaults.defaults
+        )
+
+        #expect(manager.configuredHost == "restored.local")
+        #expect(manager.state == .configured(host: "restored.local"))
+        #expect(await requests.count(for: "state") == 0)
+
+        await manager.setHeatEnabled(true)
+
+        try await waitUntil { manager.state == .ready(host: "restored.local") }
+        #expect(await requests.count(for: "setstate S_Heat") == 1)
+        #expect(await requests.count(for: "state") == 1)
+
+        try await waitForRequestCount(requests, command: "state", atLeast: 2, timeoutNanoseconds: 7_000_000_000)
+    }
 }
 
 private final class TestDefaults {
@@ -137,6 +206,44 @@ private actor AsyncGate {
             continuation.resume()
         }
     }
+}
+
+private actor RequestLog {
+    private var counts: [String: Int] = [:]
+
+    func record(_ request: URLRequest) {
+        guard
+            let url = request.url,
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+            let command = components.queryItems?.first(where: { $0.name == "cmd" })?.value
+        else {
+            return
+        }
+
+        counts[command, default: 0] += 1
+    }
+
+    func count(for command: String) -> Int {
+        counts[command, default: 0]
+    }
+}
+
+private func waitForRequestCount(
+    _ requests: RequestLog,
+    command: String,
+    atLeast expectedCount: Int,
+    timeoutNanoseconds: UInt64 = 2_000_000_000
+) async throws {
+    let deadline = Date().addingTimeInterval(TimeInterval(timeoutNanoseconds) / 1_000_000_000)
+
+    while Date() < deadline {
+        if await requests.count(for: command) >= expectedCount {
+            return
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
+    }
+
+    throw TestError.timedOut
 }
 
 private func waitUntil(

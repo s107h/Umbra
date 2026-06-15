@@ -126,7 +126,10 @@ final class FellowKettleManager: ObservableObject {
 
     func startPolling() {
         stopPolling()
+        startPollingLoop(immediately: true)
+    }
 
+    private func startPollingLoop(immediately: Bool) {
         guard let currentHost = configuredHost, !currentHost.isEmpty else {
             snapshot = nil
             state = .unconfigured
@@ -139,14 +142,18 @@ final class FellowKettleManager: ObservableObject {
         pollingTask = Task { [weak self] in
             guard let self else { return }
 
-            while !Task.isCancelled {
+            if immediately {
                 await self.refresh()
+            }
 
+            while !Task.isCancelled {
                 do {
                     try await Task.sleep(for: Self.pollInterval)
                 } catch {
                     break
                 }
+
+                await self.refresh()
             }
         }
     }
@@ -166,6 +173,7 @@ final class FellowKettleManager: ObservableObject {
                 let parsedSnapshot = try FellowKettleParser.parseState(body)
                 try self.requireFreshHost(currentHost)
                 self.snapshot = parsedSnapshot
+                self.resumePollingAfterExplicitInteraction(for: currentHost)
                 self.state = .ready(host: currentHost)
             }
         } catch is CancellationError {
@@ -215,6 +223,7 @@ final class FellowKettleManager: ObservableObject {
                 let parsedSnapshot = try FellowKettleParser.parseState(refreshBody)
                 try self.requireFreshHost(currentHost)
                 self.snapshot = parsedSnapshot
+                self.resumePollingAfterExplicitInteraction(for: currentHost)
                 self.state = .ready(host: currentHost)
                 return body
             }
@@ -298,6 +307,11 @@ final class FellowKettleManager: ObservableObject {
         }
 
         return true
+    }
+
+    private func resumePollingAfterExplicitInteraction(for host: String) {
+        guard pollingTask == nil, configuredHost == host else { return }
+        startPollingLoop(immediately: false)
     }
 
     private func stopPolling() {
