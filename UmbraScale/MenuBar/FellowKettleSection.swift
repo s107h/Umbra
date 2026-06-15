@@ -37,9 +37,11 @@ struct FellowKettleSection: View {
             guard focusedField != .host else { return }
             hostInput = newValue
         }
-        .onChange(of: kettle.snapshot) { _, snapshot in
-            guard focusedField != .targetTemperature else { return }
-            targetTemperatureInput = Self.editableTemperatureString(for: snapshot?.targetTemperatureCelsius)
+        .onChange(of: kettle.state) { _, _ in
+            syncTargetTemperatureInput()
+        }
+        .onChange(of: kettle.snapshot) { _, _ in
+            syncTargetTemperatureInput()
         }
     }
 
@@ -59,7 +61,7 @@ struct FellowKettleSection: View {
                     await kettle.refresh()
                 }
             }
-            .disabled(kettle.configuredHost == nil)
+            .disabled(kettle.configuredHost == nil || isKettleBusy)
         }
     }
 
@@ -67,8 +69,8 @@ struct FellowKettleSection: View {
         VStack(alignment: .leading, spacing: 10) {
             LabeledContent("Status", value: kettle.state.displayText)
             LabeledContent("Configured Host", value: kettle.configuredHost ?? "None")
-            LabeledContent("Current Temp", value: formattedTemperature(kettle.snapshot?.currentTemperatureCelsius))
-            LabeledContent("Target Temp", value: formattedTemperature(kettle.snapshot?.targetTemperatureCelsius))
+            LabeledContent("Current Temp", value: formattedTemperature(visibleSnapshot?.currentTemperatureCelsius))
+            LabeledContent("Target Temp", value: formattedTemperature(visibleSnapshot?.targetTemperatureCelsius))
             LabeledContent("Heat State", value: heatStateText)
         }
     }
@@ -80,14 +82,14 @@ struct FellowKettleSection: View {
                     await kettle.setHeatEnabled(true)
                 }
             }
-            .disabled(kettle.configuredHost == nil)
+            .disabled(kettle.configuredHost == nil || isKettleBusy)
 
             Button("Heat Off") {
                 Task {
                     await kettle.setHeatEnabled(false)
                 }
             }
-            .disabled(kettle.configuredHost == nil)
+            .disabled(kettle.configuredHost == nil || isKettleBusy)
         }
     }
 
@@ -102,7 +104,7 @@ struct FellowKettleSection: View {
             Button("Set") {
                 submitTargetTemperature()
             }
-            .disabled(parsedTargetTemperature == nil || kettle.configuredHost == nil)
+            .disabled(parsedTargetTemperature == nil || kettle.configuredHost == nil || isKettleBusy)
         }
     }
 
@@ -120,8 +122,35 @@ struct FellowKettleSection: View {
         Double(targetTemperatureInput.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
+    private var isKettleBusy: Bool {
+        if case .polling = kettle.state {
+            return true
+        }
+
+        if case .commandInFlight = kettle.state {
+            return true
+        }
+
+        return false
+    }
+
+    private var visibleSnapshot: FellowKettleSnapshot? {
+        guard isReadyForConfiguredHost else { return nil }
+        return kettle.snapshot
+    }
+
+    private var isReadyForConfiguredHost: Bool {
+        guard let configuredHost = kettle.configuredHost else { return false }
+
+        guard case .ready(let readyHost) = kettle.state else {
+            return false
+        }
+
+        return readyHost == configuredHost
+    }
+
     private var heatStateText: String {
-        guard let snapshot = kettle.snapshot else { return "Unknown" }
+        guard let snapshot = visibleSnapshot else { return "Unknown" }
 
         switch snapshot.mode {
         case .off:
@@ -136,9 +165,16 @@ struct FellowKettleSection: View {
     }
 
     private func saveHost() {
+        let previousHost = kettle.configuredHost
         kettle.host = hostInput
         kettle.saveHost()
         hostInput = kettle.host
+
+        if previousHost != kettle.configuredHost {
+            targetTemperatureInput = ""
+        }
+
+        syncTargetTemperatureInput()
     }
 
     private func submitTargetTemperature() {
@@ -153,6 +189,16 @@ struct FellowKettleSection: View {
     private func formattedTemperature(_ value: Double?) -> String {
         guard let value else { return "Unavailable" }
         return Self.temperatureString(for: value)
+    }
+
+    private func syncTargetTemperatureInput() {
+        guard focusedField != .targetTemperature else { return }
+
+        if let snapshot = visibleSnapshot {
+            targetTemperatureInput = Self.editableTemperatureString(for: snapshot.targetTemperatureCelsius)
+        } else {
+            targetTemperatureInput = ""
+        }
     }
 
     private static func temperatureString(for value: Double?) -> String {
