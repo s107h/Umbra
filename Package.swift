@@ -43,11 +43,18 @@ let package = Package(
         .target(
             name: "FellowKettleManagerSupport",
             dependencies: ["FellowKettleSupport"],
-            path: "UmbraScale",
+            path: "UmbraScale/Bluetooth",
+            exclude: [
+                "AcaiaBLEUUIDs.swift",
+                "AcaiaProtocol.swift",
+                "AcaiaScaleManager.swift",
+                "AcaiaScaleState.swift",
+                "AcaiaWeightParser.swift"
+            ],
             sources: [
-                "Bluetooth/BLELogger.swift",
-                "Bluetooth/FellowKettleManager.swift",
-                "Bluetooth/FellowKettleState.swift"
+                "BLELogger.swift",
+                "FellowKettleManager.swift",
+                "FellowKettleState.swift"
             ]
         ),
         .target(
