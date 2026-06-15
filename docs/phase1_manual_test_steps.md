@@ -40,7 +40,7 @@ Use these steps with a real Fellow Stagg EKG Pro Wi-Fi on the same network as th
 
 1. Launch `UmbraScale` and open the expanded HUD from the menu bar.
 2. Confirm the scale section still renders normally before touching the Fellow controls.
-3. Expand the `Debug Log` disclosure and leave it open for the remaining Fellow checks.
+3. In the `Fellow Kettle` section, expand that section's `Debug Log` disclosure and leave it open for the remaining Fellow checks.
 4. In the `Fellow Kettle` section, inspect the current host field and status first. If the intended kettle host is already saved and the status shows `Configured host <host>`, trigger a deterministic rerun by either clicking `Refresh` or clicking `Save` again with the same host value before continuing. If a different host is needed, replace any saved value with the kettle IP address or hostname you want to test, then click `Save`.
 5. Confirm the host field keeps the saved value and the status shows `Configured host <host>`, then enters `Polling <host>...`, and then reaches `Connected to <host>` once the refresh or save-triggered request returns successfully.
 6. Within 5 seconds, verify `Current Temp` and `Target Temp` populate with non-empty values that match the kettle's current screen or known idle state.
