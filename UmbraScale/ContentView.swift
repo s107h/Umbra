@@ -9,13 +9,14 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var scale: AcaiaScaleManager
+    @ObservedObject var kettle: FellowKettleManager
 
     var body: some View {
-        ScaleHUDExpandedContent(scale: scale, onToggleGear: {})
-        .padding(24)
+        ScaleHUDExpandedContent(scale: scale, kettle: kettle, onToggleGear: {})
+            .padding(24)
     }
 }
 
 #Preview {
-    ContentView(scale: AcaiaScaleManager())
+    ContentView(scale: AcaiaScaleManager(), kettle: FellowKettleManager())
 }

@@ -10,13 +10,16 @@ import SwiftUI
 @main
 struct UmbraScaleApp: App {
     @StateObject private var scale: AcaiaScaleManager
+    @StateObject private var kettle: FellowKettleManager
     private let menuBarController: ScaleMenuBarController
 
     @MainActor
     init() {
         let scale = AcaiaScaleManager()
+        let kettle = FellowKettleManager()
         _scale = StateObject(wrappedValue: scale)
-        menuBarController = ScaleMenuBarController(scale: scale)
+        _kettle = StateObject(wrappedValue: kettle)
+        menuBarController = ScaleMenuBarController(scale: scale, kettle: kettle)
     }
 
     var body: some Scene {

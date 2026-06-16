@@ -11,6 +11,14 @@ let package = Package(
         .library(
             name: "UmbraScaleSupport",
             targets: ["UmbraScaleSupport"]
+        ),
+        .library(
+            name: "FellowKettleManagerSupport",
+            targets: ["FellowKettleManagerSupport"]
+        ),
+        .library(
+            name: "FellowKettleSupport",
+            targets: ["FellowKettleSupport"]
         )
     ],
     targets: [
@@ -19,6 +27,7 @@ let package = Package(
             path: "UmbraScale/MenuBar",
             exclude: [
                 "ConnectionTransitionGate.swift",
+                "FellowKettleSection.swift",
                 "ScaleHUDCompactContent.swift",
                 "ScaleHUDExpandedContent.swift",
                 "ScaleHUDRootView.swift",
@@ -31,15 +40,70 @@ let package = Package(
                 "ScaleHUDMode.swift"
             ]
         ),
+        .target(
+            name: "FellowKettleManagerSupport",
+            dependencies: ["FellowKettleSupport"],
+            path: "UmbraScale/Bluetooth",
+            exclude: [
+                "AcaiaBLEUUIDs.swift",
+                "AcaiaProtocol.swift",
+                "AcaiaScaleManager.swift",
+                "AcaiaScaleState.swift",
+                "AcaiaWeightParser.swift"
+            ],
+            sources: [
+                "BLELogger.swift",
+                "FellowKettleManager.swift",
+                "FellowKettleState.swift"
+            ]
+        ),
+        .target(
+            name: "FellowKettleSupport",
+            path: "UmbraScale/FellowSupport",
+            sources: [
+                "FellowKettleCLIRequest.swift",
+                "FellowKettleMode.swift",
+                "FellowKettleParser.swift",
+                "FellowKettleSnapshot.swift"
+            ]
+        ),
+        .testTarget(
+            name: "FellowKettleManagerSupportTests",
+            dependencies: ["FellowKettleManagerSupport"],
+            path: "UmbraScaleTests",
+            exclude: [
+                "AcaiaPhase1Tests.swift",
+                "FellowKettleSupportTests.swift",
+                "ScaleHUDPresentationTests.swift"
+            ],
+            sources: [
+                "FellowKettleManagerTests.swift"
+            ]
+        ),
         .testTarget(
             name: "UmbraScaleSupportTests",
             dependencies: ["UmbraScaleSupport"],
             path: "UmbraScaleTests",
             exclude: [
-                "AcaiaPhase1Tests.swift"
+                "AcaiaPhase1Tests.swift",
+                "FellowKettleManagerTests.swift",
+                "FellowKettleSupportTests.swift"
             ],
             sources: [
                 "ScaleHUDPresentationTests.swift"
+            ]
+        ),
+        .testTarget(
+            name: "FellowKettleSupportTests",
+            dependencies: ["FellowKettleSupport"],
+            path: "UmbraScaleTests",
+            exclude: [
+                "AcaiaPhase1Tests.swift",
+                "FellowKettleManagerTests.swift",
+                "ScaleHUDPresentationTests.swift"
+            ],
+            sources: [
+                "FellowKettleSupportTests.swift"
             ]
         )
     ]
