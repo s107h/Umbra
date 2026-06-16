@@ -6,31 +6,35 @@ struct ScaleHUDExpandedContent: View {
     let onToggleGear: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(scale.isConnected ? String(format: "%.1f g", scale.displayedReading.grams) : "Disconnected")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                    Text(scale.state.displayText)
-                        .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(scale.isConnected ? String(format: "%.1f g", scale.displayedReading.grams) : "Disconnected")
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                        Text(scale.state.displayText)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Button(action: onToggleGear) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
                 }
 
-                Spacer()
-
-                Button(action: onToggleGear) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                }
-                .buttonStyle(.plain)
+                ScaleStatusSection(scale: scale)
+                ScaleControlsSection(scale: scale)
+                FellowKettleSection(kettle: kettle)
+                DiscoveredScalesSection(scale: scale)
+                DebugLogSection(scale: scale)
             }
-
-            ScaleStatusSection(scale: scale)
-            ScaleControlsSection(scale: scale)
-            FellowKettleSection(kettle: kettle)
-            DiscoveredScalesSection(scale: scale)
-            DebugLogSection(scale: scale)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minHeight: ScaleHUDMode.expanded.contentSize.height - 40, alignment: .top)
         }
-        .frame(minWidth: 760, minHeight: 620)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
