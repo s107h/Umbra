@@ -182,6 +182,7 @@ final class FellowKettleManager: ObservableObject {
             guard shouldPublishFailure(for: currentHost, error: error) else {
                 return
             }
+            resumePollingAfterExplicitInteraction(for: currentHost)
             state = .error(host: currentHost, message: error.localizedDescription)
             logger.log("Fellow poll failed for \(currentHost): \(error.localizedDescription)")
         }
@@ -233,6 +234,7 @@ final class FellowKettleManager: ObservableObject {
             guard shouldPublishFailure(for: currentHost, error: error) else {
                 throw CancellationError()
             }
+            resumePollingAfterExplicitInteraction(for: currentHost)
             state = .error(host: currentHost, message: error.localizedDescription)
             logger.log("Fellow command failed (\(label)) for \(currentHost): \(error.localizedDescription)")
             throw error

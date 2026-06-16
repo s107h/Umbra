@@ -120,6 +120,47 @@ struct FellowKettleManagerTests {
         try await waitForRequestCount(requests, command: "state", atLeast: 2, timeoutNanoseconds: 7_000_000_000)
     }
 
+    @Test func refreshFailureStillRearmsPollingAfterRestoredIdleHost() async throws {
+        let defaults = try TestDefaults.make()
+        defaults.defaults.set("restored.local", forKey: "fellowKettleHost")
+
+        let transport = TestURLProtocol.Transport()
+        let requests = RequestLog()
+        let responsePlan = ResponsePlan(steps: [
+            .httpError(statusCode: 504, body: "gateway timeout"),
+            .success(
+                """
+                tempr=61.0 C
+                temprT=95.0 C
+                mode=S_Heat
+                """
+            ),
+        ])
+
+        await transport.setHandler(for: "restored.local") { request in
+            await requests.record(request)
+            return try await responsePlan.next()
+        }
+
+        let manager = FellowKettleManager(
+            session: TestURLProtocol.makeSession(transport: transport),
+            defaults: defaults.defaults
+        )
+
+        #expect(manager.configuredHost == "restored.local")
+        #expect(manager.state == .configured(host: "restored.local"))
+        #expect(await requests.count(for: "state") == 0)
+
+        await manager.refresh()
+
+        #expect(manager.state == .error(host: "restored.local", message: "Kettle request failed with HTTP 504: gateway timeout"))
+        #expect(await requests.count(for: "state") == 1)
+
+        try await waitForRequestCount(requests, command: "state", atLeast: 2, timeoutNanoseconds: 7_000_000_000)
+        try await waitUntil { manager.state == .ready(host: "restored.local") }
+        #expect(manager.snapshot?.currentTemperatureCelsius == 61.0)
+    }
+
     @Test func heatCommandRestartsPollingAfterRestoredIdleHost() async throws {
         let defaults = try TestDefaults.make()
         defaults.defaults.set("restored.local", forKey: "fellowKettleHost")
@@ -225,6 +266,37 @@ private actor RequestLog {
 
     func count(for command: String) -> Int {
         counts[command, default: 0]
+    }
+}
+
+private actor ResponsePlan {
+    enum Step {
+        case success(String)
+        case httpError(statusCode: Int, body: String)
+    }
+
+    private var steps: [Step]
+    private var fallbackStep: Step
+
+    init(steps: [Step]) {
+        precondition(!steps.isEmpty)
+        self.steps = steps
+        fallbackStep = steps[steps.count - 1]
+    }
+
+    func next() throws -> (HTTPURLResponse, Data) {
+        let step = if steps.isEmpty {
+            fallbackStep
+        } else {
+            steps.removeFirst()
+        }
+
+        switch step {
+        case .success(let body):
+            return TestURLProtocol.httpResponse(body: body)
+        case .httpError(let statusCode, let body):
+            return TestURLProtocol.httpResponse(statusCode: statusCode, body: body)
+        }
     }
 }
 
