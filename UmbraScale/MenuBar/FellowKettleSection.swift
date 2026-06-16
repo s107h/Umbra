@@ -147,9 +147,10 @@ struct FellowKettleSection: View {
              .polling(let host),
              .commandInFlight(let host, _):
             return host == configuredHost
+        case .error(let host, _):
+            return host == configuredHost
         case .configured,
-             .unconfigured,
-             .error:
+             .unconfigured:
             return false
         }
     }
