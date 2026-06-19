@@ -53,6 +53,8 @@ let package = Package(
             ],
             sources: [
                 "BLELogger.swift",
+                "FellowKettleDiscoveryCandidate.swift",
+                "FellowKettleDiscoveryState.swift",
                 "FellowKettleManager.swift",
                 "FellowKettleState.swift"
             ]
@@ -80,6 +82,7 @@ let package = Package(
                 "ScaleHUDPresentationTests.swift"
             ],
             sources: [
+                "FellowKettleDiscoverySupportTests.swift",
                 "FellowKettleManagerTests.swift"
             ]
         ),
@@ -89,6 +92,7 @@ let package = Package(
             path: "UmbraScaleTests",
             exclude: [
                 "AcaiaPhase1Tests.swift",
+                "FellowKettleDiscoverySupportTests.swift",
                 "FellowKettleManagerTests.swift",
                 "FellowKettleSupportTests.swift"
             ],
@@ -102,6 +106,7 @@ let package = Package(
             path: "UmbraScaleTests",
             exclude: [
                 "AcaiaPhase1Tests.swift",
+                "FellowKettleDiscoverySupportTests.swift",
                 "FellowKettleManagerTests.swift",
                 "ScaleHUDPresentationTests.swift"
             ],
