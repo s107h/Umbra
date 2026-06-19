@@ -6,6 +6,8 @@ struct FellowKettleSection: View {
 
     @State private var hostInput: String
     @State private var targetTemperatureInput: String
+    @State private var selectedUnits: FellowKettleUnits
+    @State private var selectedHoldDuration: FellowKettleHoldDuration
     @State private var isLogExpanded = false
     @FocusState private var focusedField: Field?
 
@@ -20,15 +22,19 @@ struct FellowKettleSection: View {
         _targetTemperatureInput = State(
             initialValue: Self.editableTemperatureString(for: kettle.snapshot?.targetTemperatureCelsius)
         )
+        _selectedUnits = State(initialValue: kettle.snapshot?.units ?? .celsius)
+        _selectedHoldDuration = State(initialValue: kettle.snapshot?.holdDuration ?? .off)
     }
 
     var body: some View {
         GroupBox("Fellow Kettle") {
             VStack(alignment: .leading, spacing: 14) {
+                discoveryStatusRows
                 hostControls
                 statusRows
                 heatControls
                 targetControls
+                settingsControls
                 debugLogDisclosure
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -42,6 +48,14 @@ struct FellowKettleSection: View {
         }
         .onChange(of: kettle.snapshot) { _, _ in
             syncTargetTemperatureInput()
+            syncSettingsInputs()
+        }
+    }
+
+    private var discoveryStatusRows: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LabeledContent("Discovery", value: discoveryStatusText)
+            LabeledContent("Candidates", value: "\(kettle.discoveryCandidates.count)")
         }
     }
 
@@ -68,10 +82,12 @@ struct FellowKettleSection: View {
     private var statusRows: some View {
         VStack(alignment: .leading, spacing: 10) {
             LabeledContent("Status", value: kettle.state.displayText)
-            LabeledContent("Configured Host", value: kettle.configuredHost ?? "None")
+            LabeledContent("Configured Host", value: kettle.configuredHost ?? "Auto-discovering")
             LabeledContent("Current Temp", value: formattedTemperature(visibleSnapshot?.currentTemperatureCelsius))
             LabeledContent("Target Temp", value: formattedTemperature(visibleSnapshot?.targetTemperatureCelsius))
             LabeledContent("Heat State", value: heatStateText)
+            LabeledContent("Units", value: unitsText)
+            LabeledContent("Hold", value: holdDurationText)
         }
     }
 
@@ -105,6 +121,43 @@ struct FellowKettleSection: View {
                 submitTargetTemperature()
             }
             .disabled(parsedTargetTemperature == nil || kettle.configuredHost == nil || isKettleBusy)
+        }
+    }
+
+    private var settingsControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Picker("Units", selection: $selectedUnits) {
+                    Text("Celsius").tag(FellowKettleUnits.celsius)
+                    Text("Fahrenheit").tag(FellowKettleUnits.fahrenheit)
+                }
+                .pickerStyle(.menu)
+
+                Button("Set Units") {
+                    Task {
+                        await kettle.setUnits(selectedUnits)
+                    }
+                }
+                .disabled(kettle.configuredHost == nil || isKettleBusy)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Picker("Hold", selection: $selectedHoldDuration) {
+                    Text("Off").tag(FellowKettleHoldDuration.off)
+                    Text("15 min").tag(FellowKettleHoldDuration.minutes15)
+                    Text("30 min").tag(FellowKettleHoldDuration.minutes30)
+                    Text("45 min").tag(FellowKettleHoldDuration.minutes45)
+                    Text("60 min").tag(FellowKettleHoldDuration.minutes60)
+                }
+                .pickerStyle(.menu)
+
+                Button("Set Hold") {
+                    Task {
+                        await kettle.setHoldDuration(selectedHoldDuration)
+                    }
+                }
+                .disabled(kettle.configuredHost == nil || isKettleBusy)
+            }
         }
     }
 
@@ -150,6 +203,8 @@ struct FellowKettleSection: View {
         case .error(let host, _):
             return host == configuredHost
         case .configured,
+             .discovering,
+             .conflict,
              .unconfigured:
             return false
         }
@@ -167,6 +222,45 @@ struct FellowKettleSection: View {
             return "Hold"
         case .other(let mode):
             return mode
+        }
+    }
+
+    private var discoveryStatusText: String {
+        switch kettle.discoveryState {
+        case .idle:
+            return kettle.configuredHost == nil ? "Idle" : "Stopped"
+        case .discovering:
+            return "Searching"
+        case .conflict:
+            return "Multiple candidates"
+        }
+    }
+
+    private var unitsText: String {
+        switch visibleSnapshot?.units {
+        case .celsius:
+            return "Celsius"
+        case .fahrenheit:
+            return "Fahrenheit"
+        case nil:
+            return "Unavailable"
+        }
+    }
+
+    private var holdDurationText: String {
+        switch visibleSnapshot?.holdDuration {
+        case .off:
+            return "Off"
+        case .minutes15:
+            return "15 min"
+        case .minutes30:
+            return "30 min"
+        case .minutes45:
+            return "45 min"
+        case .minutes60:
+            return "60 min"
+        case nil:
+            return "Unavailable"
         }
     }
 
@@ -204,6 +298,16 @@ struct FellowKettleSection: View {
             targetTemperatureInput = Self.editableTemperatureString(for: snapshot.targetTemperatureCelsius)
         } else {
             targetTemperatureInput = ""
+        }
+    }
+
+    private func syncSettingsInputs() {
+        if let units = visibleSnapshot?.units {
+            selectedUnits = units
+        }
+
+        if let holdDuration = visibleSnapshot?.holdDuration {
+            selectedHoldDuration = holdDuration
         }
     }
 

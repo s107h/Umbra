@@ -41,23 +41,28 @@ Use these steps with a real Fellow Stagg EKG Pro Wi-Fi on the same network as th
 1. Launch `UmbraScale` and open the expanded HUD from the menu bar.
 2. Confirm the scale section still renders normally before touching the Fellow controls.
 3. In the `Fellow Kettle` section, expand that section's `Debug Log` disclosure and leave it open for the remaining Fellow checks.
-4. In the `Fellow Kettle` section, inspect the current host field and status first. If the intended kettle host is already saved and the status shows `Configured host <host>`, trigger a deterministic rerun by either clicking `Refresh` or clicking `Save` again with the same host value before continuing. If a different host is needed, replace any saved value with the kettle IP address or hostname you want to test, then click `Save`.
-5. Confirm the host field keeps the saved value and the status shows `Configured host <host>`, then enters `Polling <host>...`, and then reaches `Connected to <host>` once the refresh or save-triggered request returns successfully.
-6. Within 5 seconds, verify `Current Temp` and `Target Temp` populate with non-empty values that match the kettle's current screen or known idle state.
-7. Confirm the Fellow debug log records the saved host, the request URL for the `state` poll, the HTTP status, and the raw response body without affecting the Umbra status or weight display.
-8. Enter a new target temperature such as `96.0`, then click `Set`.
-9. Confirm the HUD log shows a `setsetting settempr` request followed by `setstate S_Heat`.
-10. Verify the kettle itself begins heating, the status stays connected, and the displayed target temperature updates to the requested value or the nearest value accepted by the kettle firmware.
-11. Watch the next few polling cycles and confirm `Current Temp` trends upward while the Umbra section continues updating normally if the scale is connected.
-12. Click `Heat Off`.
-13. Confirm the log shows the heat-off command, then a follow-up refresh or successful poll reflects the off-equivalent `Heat State` while the status settles back on `Connected to <host>` after the request path completes.
-14. Replace the saved host with an invalid value such as `http://invalid.local` or a non-routable IP, then click `Save`.
-15. Confirm the Fellow section reports a polling or connection error and the debug log captures the failed request details.
-16. While the Fellow section is in the error state, verify the Umbra BLE path still works: the scale can stay connected, live weight continues updating, and the HUD remains responsive.
-17. Restore the valid kettle host if additional hardware testing is needed.
+4. If no kettle host is saved, confirm the Fellow section shows `Discovery: Searching` within a moment of launch.
+5. If the kettle advertises over mDNS and is the only matching candidate, confirm the app auto-adopts it, shows `Configured Host` with the discovered HTTP host, then enters `Polling <host>...`, and then reaches `Connected to <host>`.
+6. If mDNS does not find the kettle, use the host field as the fallback path: enter the kettle IP address or hostname you want to test, then click `Save`.
+7. Within 5 seconds of either auto-adoption or manual save, verify `Current Temp` and `Target Temp` populate with non-empty values that match the kettle's current screen or known idle state.
+8. Confirm the Fellow debug log records the resolved or saved host, the request URL for the `state` poll, the `prtsettings` request, the HTTP status, and the raw response bodies without affecting the Umbra status or weight display.
+9. Enter a new target temperature such as `96.0`, then click `Set`.
+10. Confirm the HUD log shows a `setsetting settempr` request followed by `setstate S_Heat`.
+11. Verify the kettle itself begins heating, the status stays connected, and the displayed target temperature updates to the requested value or the nearest value accepted by the kettle firmware.
+12. Change the `Units` picker to `Fahrenheit`, then click `Set Units`.
+13. Confirm the kettle reflects the new units mode and the Fellow section updates the `Units` row accordingly.
+14. Change the `Hold` picker to `45 min`, then click `Set Hold`.
+15. Confirm the kettle reflects the new hold duration and the Fellow section updates the `Hold` row accordingly.
+16. Click `Heat Off`.
+17. Confirm the log shows the heat-off command, then a follow-up refresh or successful poll reflects the off-equivalent `Heat State` while the status settles back on `Connected to <host>` after the request path completes.
+18. Replace the saved host with an invalid value such as `http://invalid.local` or a non-routable IP, then click `Save`.
+19. Confirm the Fellow section reports a polling or connection error and the debug log captures the failed request details.
+20. While the Fellow section is in the error state, verify the Umbra BLE path still works: the scale can stay connected, live weight continues updating, and the HUD remains responsive.
+21. Restore the valid kettle host if additional hardware testing is needed.
 
 ## Current limits
 
 - Only the captured 13-byte Umbra weight packet family is parsed right now.
 - Other packet types are still logged as raw hex and reported as unhandled.
 - BLE tare is still not implemented. `Zero Display` is an app-side calibration only.
+- Fellow BLE-assisted endpoint recovery is not part of the current kettle auto-discovery path yet; the live path is mDNS first, with manual host entry as fallback.
