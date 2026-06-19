@@ -14,12 +14,27 @@ public enum FellowKettleParser {
         let current = try temperatureValue(for: "tempr", missingError: .missingTemperature, invalidError: .invalidTemperature, in: body)
         let target = try temperatureValue(for: "temprT", missingError: .missingTargetTemperature, invalidError: .invalidTargetTemperature, in: body)
         let mode = try modeValue(in: body)
+        let units = fieldValue(for: "units", in: body).flatMap(FellowKettleUnits.init(stateValue:))
+        let holdDuration = fieldValue(for: "hold", in: body)
+            .flatMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+            .flatMap(FellowKettleHoldDuration.init(rawValue:))
 
         return FellowKettleSnapshot(
             currentTemperatureCelsius: current,
             targetTemperatureCelsius: target,
-            mode: FellowKettleMode(rawMode: mode)
+            mode: FellowKettleMode(rawMode: mode),
+            units: units,
+            holdDuration: holdDuration
         )
+    }
+
+    public static func parseSettings(_ body: String) throws -> FellowKettleSettingsSnapshot {
+        let units = fieldValue(for: "units", in: body).flatMap(FellowKettleUnits.init(stateValue:))
+        let holdDuration = fieldValue(for: "hold", in: body)
+            .flatMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+            .flatMap(FellowKettleHoldDuration.init(rawValue:))
+
+        return FellowKettleSettingsSnapshot(units: units, holdDuration: holdDuration)
     }
 
     private static func temperatureValue(

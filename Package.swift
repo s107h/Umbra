@@ -62,9 +62,12 @@ let package = Package(
             path: "UmbraScale/FellowSupport",
             sources: [
                 "FellowKettleCLIRequest.swift",
+                "FellowKettleHoldDuration.swift",
                 "FellowKettleMode.swift",
                 "FellowKettleParser.swift",
-                "FellowKettleSnapshot.swift"
+                "FellowKettleSettingsSnapshot.swift",
+                "FellowKettleSnapshot.swift",
+                "FellowKettleUnits.swift"
             ]
         ),
         .testTarget(

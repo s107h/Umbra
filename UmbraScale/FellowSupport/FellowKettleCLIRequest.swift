@@ -8,14 +8,19 @@ public struct FellowKettleCLIRequest: Equatable {
 
     public enum Command: Equatable {
         case state
+        case settings
         case heatOn
         case heatOff
         case setTargetCelsius(Double)
+        case setUnits(FellowKettleUnits)
+        case setHoldDuration(FellowKettleHoldDuration)
 
         func rawValue() throws -> String {
             switch self {
             case .state:
                 return "state"
+            case .settings:
+                return "prtsettings"
             case .heatOn:
                 return "setstate S_Heat"
             case .heatOff:
@@ -32,6 +37,12 @@ public struct FellowKettleCLIRequest: Equatable {
                 }
                 let fahrenheit = Int(fahrenheitValue)
                 return "setsetting settempr \(fahrenheit)"
+            case .setUnits(.celsius):
+                return "setunitsc"
+            case .setUnits(.fahrenheit):
+                return "setunitsf"
+            case .setHoldDuration(let holdDuration):
+                return "setsetting hold \(holdDuration.rawValue)"
             }
         }
     }

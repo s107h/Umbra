@@ -18,6 +18,30 @@ struct FellowKettleSupportTests {
         #expect(url.absoluteString == "http://kettle.local/cli?cmd=setstate%20S_Off")
     }
 
+    @Test func requestEncodesSetUnitsCelsiusCommand() throws {
+        let url = try FellowKettleCLIRequest(
+            baseURLString: "http://kettle.local",
+            command: .setUnits(.celsius)
+        ).url()
+        #expect(url.absoluteString == "http://kettle.local/cli?cmd=setunitsc")
+    }
+
+    @Test func requestEncodesSetUnitsFahrenheitCommand() throws {
+        let url = try FellowKettleCLIRequest(
+            baseURLString: "http://kettle.local",
+            command: .setUnits(.fahrenheit)
+        ).url()
+        #expect(url.absoluteString == "http://kettle.local/cli?cmd=setunitsf")
+    }
+
+    @Test func requestEncodesSetHoldDurationCommand() throws {
+        let url = try FellowKettleCLIRequest(
+            baseURLString: "http://kettle.local",
+            command: .setHoldDuration(.minutes45)
+        ).url()
+        #expect(url.absoluteString == "http://kettle.local/cli?cmd=setsetting%20hold%2045")
+    }
+
     @Test func requestConvertsTargetCelsiusToWholeFahrenheit() throws {
         let url = try FellowKettleCLIRequest(
             baseURLString: "http://192.168.1.8",
@@ -189,5 +213,19 @@ struct FellowKettleSupportTests {
         #expect(throws: FellowKettleParser.ParseError.invalidMode) {
             try FellowKettleParser.parseState(body)
         }
+    }
+
+    @Test func parserExtractsUnitsAndHoldFromSettingsOutput() throws {
+        let body = """
+        clockmode=1
+        hold=30
+        schedon=1
+        units=1
+        """
+
+        let settings = try FellowKettleParser.parseSettings(body)
+
+        #expect(settings.units == .celsius)
+        #expect(settings.holdDuration == .minutes30)
     }
 }
