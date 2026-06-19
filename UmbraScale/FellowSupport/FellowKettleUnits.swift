@@ -4,7 +4,7 @@ public enum FellowKettleUnits: String, CaseIterable, Equatable {
     case celsius
     case fahrenheit
 
-    init?(stateValue: String) {
+    nonisolated init?(stateValue: String) {
         switch stateValue.trimmingCharacters(in: .whitespacesAndNewlines) {
         case "1":
             self = .celsius

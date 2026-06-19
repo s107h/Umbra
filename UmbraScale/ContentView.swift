@@ -18,5 +18,13 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(scale: AcaiaScaleManager(), kettle: FellowKettleManager())
+    ContentView(
+        scale: AcaiaScaleManager(),
+        kettle: FellowKettleManager(
+            discoveryManager: FellowKettleDiscoveryManager(
+                mdnsBrowser: FellowKettleMDNSBrowser(),
+                bleResolver: NoopFellowKettleBLEResolver()
+            )
+        )
+    )
 }

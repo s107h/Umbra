@@ -14,18 +14,33 @@ struct FellowKettleManagerTests {
         mode=S_Heat
         """
 
-        await transport.setHandler(for: "old.local") { _ in
-            TestURLProtocol.httpResponse(body: oldHostBody)
+        await transport.setHandler(for: "old.local") { request in
+            switch request.cliCommand {
+            case "state":
+                return TestURLProtocol.httpResponse(body: oldHostBody)
+            case "prtsettings":
+                return TestURLProtocol.httpResponse(body: "hold=30\nunits=1")
+            default:
+                return TestURLProtocol.httpResponse(statusCode: 404, body: request.cliCommand ?? "unknown")
+            }
         }
         let newHostResponseGate = AsyncGate()
-        await transport.setHandler(for: "new.local") { _ in
+        await transport.setHandler(for: "new.local") { request in
             await newHostResponseGate.wait()
-            return TestURLProtocol.httpResponse(body: oldHostBody)
+            switch request.cliCommand {
+            case "state":
+                return TestURLProtocol.httpResponse(body: oldHostBody)
+            case "prtsettings":
+                return TestURLProtocol.httpResponse(body: "hold=30\nunits=1")
+            default:
+                return TestURLProtocol.httpResponse(statusCode: 404, body: request.cliCommand ?? "unknown")
+            }
         }
 
         let manager = FellowKettleManager(
             session: TestURLProtocol.makeSession(transport: transport),
-            defaults: defaults.defaults
+            defaults: defaults.defaults,
+            discoveryManager: makeDiscoveryManager()
         )
 
         manager.host = "old.local"
@@ -55,13 +70,21 @@ struct FellowKettleManagerTests {
         mode=S_Hold
         """
 
-        await transport.setHandler(for: "same.local") { _ in
-            return TestURLProtocol.httpResponse(body: body)
+        await transport.setHandler(for: "same.local") { request in
+            switch request.cliCommand {
+            case "state":
+                return TestURLProtocol.httpResponse(body: body)
+            case "prtsettings":
+                return TestURLProtocol.httpResponse(body: "hold=30\nunits=1")
+            default:
+                return TestURLProtocol.httpResponse(statusCode: 404, body: request.cliCommand ?? "unknown")
+            }
         }
 
         let manager = FellowKettleManager(
             session: TestURLProtocol.makeSession(transport: transport),
-            defaults: defaults.defaults
+            defaults: defaults.defaults,
+            discoveryManager: makeDiscoveryManager()
         )
 
         manager.host = "same.local"
@@ -71,9 +94,16 @@ struct FellowKettleManagerTests {
         let snapshot = try #require(manager.snapshot)
 
         let refreshGate = AsyncGate()
-        await transport.setHandler(for: "same.local") { _ in
+        await transport.setHandler(for: "same.local") { request in
             await refreshGate.wait()
-            return TestURLProtocol.httpResponse(body: body)
+            switch request.cliCommand {
+            case "state":
+                return TestURLProtocol.httpResponse(body: body)
+            case "prtsettings":
+                return TestURLProtocol.httpResponse(body: "hold=30\nunits=1")
+            default:
+                return TestURLProtocol.httpResponse(statusCode: 404, body: request.cliCommand ?? "unknown")
+            }
         }
 
         manager.host = "same.local"
@@ -100,12 +130,20 @@ struct FellowKettleManagerTests {
 
         await transport.setHandler(for: "restored.local") { request in
             await requests.record(request)
-            return TestURLProtocol.httpResponse(body: body)
+            switch request.cliCommand {
+            case "state":
+                return TestURLProtocol.httpResponse(body: body)
+            case "prtsettings":
+                return TestURLProtocol.httpResponse(body: "hold=15\nunits=1")
+            default:
+                return TestURLProtocol.httpResponse(statusCode: 404, body: request.cliCommand ?? "unknown")
+            }
         }
 
         let manager = FellowKettleManager(
             session: TestURLProtocol.makeSession(transport: transport),
-            defaults: defaults.defaults
+            defaults: defaults.defaults,
+            discoveryManager: makeDiscoveryManager()
         )
 
         #expect(manager.configuredHost == "restored.local")
@@ -126,8 +164,15 @@ struct FellowKettleManagerTests {
 
         let transport = TestURLProtocol.Transport()
         let requests = RequestLog()
-        let responsePlan = ResponsePlan(steps: [
+        let statePlan = ResponsePlan(steps: [
             .httpError(statusCode: 504, body: "gateway timeout"),
+            .success(
+                """
+                tempr=61.0 C
+                temprT=95.0 C
+                mode=S_Heat
+                """
+            ),
             .success(
                 """
                 tempr=61.0 C
@@ -139,12 +184,20 @@ struct FellowKettleManagerTests {
 
         await transport.setHandler(for: "restored.local") { request in
             await requests.record(request)
-            return try await responsePlan.next()
+            switch request.cliCommand {
+            case "state":
+                return try await statePlan.next()
+            case "prtsettings":
+                return TestURLProtocol.httpResponse(body: "hold=15\nunits=1")
+            default:
+                return TestURLProtocol.httpResponse(statusCode: 404, body: request.cliCommand ?? "unknown")
+            }
         }
 
         let manager = FellowKettleManager(
             session: TestURLProtocol.makeSession(transport: transport),
-            defaults: defaults.defaults
+            defaults: defaults.defaults,
+            discoveryManager: makeDiscoveryManager()
         )
 
         #expect(manager.configuredHost == "restored.local")
@@ -175,12 +228,22 @@ struct FellowKettleManagerTests {
 
         await transport.setHandler(for: "restored.local") { request in
             await requests.record(request)
-            return TestURLProtocol.httpResponse(body: body)
+            switch request.cliCommand {
+            case "setstate S_Heat":
+                return TestURLProtocol.httpResponse(body: "ok")
+            case "state":
+                return TestURLProtocol.httpResponse(body: body)
+            case "prtsettings":
+                return TestURLProtocol.httpResponse(body: "hold=15\nunits=1")
+            default:
+                return TestURLProtocol.httpResponse(statusCode: 404, body: request.cliCommand ?? "unknown")
+            }
         }
 
         let manager = FellowKettleManager(
             session: TestURLProtocol.makeSession(transport: transport),
-            defaults: defaults.defaults
+            defaults: defaults.defaults,
+            discoveryManager: makeDiscoveryManager()
         )
 
         #expect(manager.configuredHost == "restored.local")
@@ -194,6 +257,160 @@ struct FellowKettleManagerTests {
         #expect(await requests.count(for: "state") == 1)
 
         try await waitForRequestCount(requests, command: "state", atLeast: 2, timeoutNanoseconds: 7_000_000_000)
+    }
+
+    @Test func autoAdoptsSingleDiscoveryEndpointAndStartsPolling() async throws {
+        let defaults = try TestDefaults.make()
+        let transport = TestURLProtocol.Transport()
+        let requests = RequestLog()
+        let mdns = TestManagerMDNSBrowser()
+        let ble = TestManagerBLEResolver()
+
+        await transport.setHandler(for: "192.168.1.86") { request in
+            await requests.record(request)
+            switch request.cliCommand {
+            case "state":
+                return TestURLProtocol.httpResponse(body: "tempr=61.0 C\ntemprT=95.0 C\nmode=S_Heat\nunits=1")
+            case "prtsettings":
+                return TestURLProtocol.httpResponse(body: "hold=30\nunits=1")
+            default:
+                return TestURLProtocol.httpResponse(statusCode: 404, body: request.cliCommand ?? "unknown")
+            }
+        }
+
+        let manager = FellowKettleManager(
+            session: TestURLProtocol.makeSession(transport: transport),
+            defaults: defaults.defaults,
+            discoveryManager: FellowKettleDiscoveryManager(mdnsBrowser: mdns, bleResolver: ble)
+        )
+
+        manager.beginAutomaticDiscoveryIfNeeded()
+        await mdns.emit(
+            FellowKettleDiscoveryCandidate(
+                id: "mdns-1",
+                source: .mdns,
+                displayName: "Stagg",
+                resolvedBaseURL: URL(string: "http://192.168.1.86"),
+                bleIdentifier: nil
+            )
+        )
+
+        try await waitUntil { manager.discoveryCandidates.count == 1 }
+        try await waitUntil { manager.configuredHost == "http://192.168.1.86" }
+        try await waitUntil { manager.state == .ready(host: "http://192.168.1.86") }
+        #expect(manager.snapshot?.units == .celsius)
+        #expect(manager.snapshot?.holdDuration == .minutes30)
+        #expect(await requests.count(for: "state") >= 1)
+    }
+
+    @Test func setUnitsRefreshesSnapshotAfterCommand() async throws {
+        let defaults = try TestDefaults.make()
+        let transport = TestURLProtocol.Transport()
+        let requests = RequestLog()
+
+        await transport.setHandler(for: "kettle.local") { request in
+            await requests.record(request)
+            switch request.cliCommand {
+            case "setunitsf":
+                return TestURLProtocol.httpResponse(body: "ok")
+            case "state":
+                return TestURLProtocol.httpResponse(body: "tempr=145.0 F\ntemprT=203.0 F\nmode=S_Hold\nunits=0")
+            case "prtsettings":
+                return TestURLProtocol.httpResponse(body: "hold=45\nunits=0")
+            default:
+                return TestURLProtocol.httpResponse(statusCode: 404, body: request.cliCommand ?? "unknown")
+            }
+        }
+
+        let manager = FellowKettleManager(
+            session: TestURLProtocol.makeSession(transport: transport),
+            defaults: defaults.defaults,
+            discoveryManager: makeDiscoveryManager()
+        )
+
+        manager.host = "kettle.local"
+        manager.saveHost()
+        try await waitUntil { manager.snapshot != nil }
+
+        await manager.setUnits(.fahrenheit)
+
+        try await waitUntil { manager.snapshot?.units == .fahrenheit }
+        #expect(manager.state == .ready(host: "kettle.local"))
+        #expect(await requests.count(for: "setunitsf") == 1)
+    }
+
+    @Test func setHoldDurationRefreshesSnapshotAfterCommand() async throws {
+        let defaults = try TestDefaults.make()
+        let transport = TestURLProtocol.Transport()
+        let requests = RequestLog()
+
+        await transport.setHandler(for: "kettle.local") { request in
+            await requests.record(request)
+            switch request.cliCommand {
+            case "setsetting hold 45":
+                return TestURLProtocol.httpResponse(body: "ok")
+            case "state":
+                return TestURLProtocol.httpResponse(body: "tempr=61.0 C\ntemprT=95.0 C\nmode=S_Hold\nunits=1")
+            case "prtsettings":
+                return TestURLProtocol.httpResponse(body: "hold=45\nunits=1")
+            default:
+                return TestURLProtocol.httpResponse(statusCode: 404, body: request.cliCommand ?? "unknown")
+            }
+        }
+
+        let manager = FellowKettleManager(
+            session: TestURLProtocol.makeSession(transport: transport),
+            defaults: defaults.defaults,
+            discoveryManager: makeDiscoveryManager()
+        )
+
+        manager.host = "kettle.local"
+        manager.saveHost()
+        try await waitUntil { manager.snapshot != nil }
+
+        await manager.setHoldDuration(.minutes45)
+
+        try await waitUntil { manager.snapshot?.holdDuration == .minutes45 }
+        #expect(manager.state == .ready(host: "kettle.local"))
+        #expect(await requests.count(for: "setsetting hold 45") == 1)
+    }
+}
+
+@MainActor
+private func makeDiscoveryManager() -> FellowKettleDiscoveryManager {
+    FellowKettleDiscoveryManager(
+        mdnsBrowser: TestManagerMDNSBrowser(),
+        bleResolver: TestManagerBLEResolver()
+    )
+}
+
+private actor TestManagerMDNSBrowser: FellowKettleMDNSBrowsing {
+    private var continuation: AsyncStream<FellowKettleDiscoveryCandidate>.Continuation?
+    nonisolated let updates: AsyncStream<FellowKettleDiscoveryCandidate>
+
+    init() {
+        var capturedContinuation: AsyncStream<FellowKettleDiscoveryCandidate>.Continuation?
+        updates = AsyncStream { continuation in
+            capturedContinuation = continuation
+        }
+        continuation = capturedContinuation
+    }
+
+    func start() async {}
+    func stop() async { continuation?.finish() }
+    func emit(_ candidate: FellowKettleDiscoveryCandidate) { continuation?.yield(candidate) }
+}
+
+private actor TestManagerBLEResolver: FellowKettleBLEResolving {
+    nonisolated let sightings = AsyncStream<(UUID, String)> { continuation in
+        continuation.finish()
+    }
+
+    func start() async {}
+    func stop() async {}
+    func resolveBaseURL(for identifier: UUID) async -> URL? {
+        _ = identifier
+        return nil
     }
 }
 
@@ -253,11 +470,7 @@ private actor RequestLog {
     private var counts: [String: Int] = [:]
 
     func record(_ request: URLRequest) {
-        guard
-            let url = request.url,
-            let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-            let command = components.queryItems?.first(where: { $0.name == "cmd" })?.value
-        else {
+        guard let command = request.cliCommand else {
             return
         }
 
@@ -410,4 +623,16 @@ private final class TestURLProtocol: URLProtocol, @unchecked Sendable {
     }
 
     override func stopLoading() {}
+}
+
+private extension URLRequest {
+    var cliCommand: String? {
+        guard
+            let url,
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        else {
+            return nil
+        }
+        return components.queryItems?.first(where: { $0.name == "cmd" })?.value
+    }
 }

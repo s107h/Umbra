@@ -71,23 +71,33 @@ final class FellowKettleManager: ObservableObject {
     @Published private(set) var state: FellowKettleState
     @Published private(set) var snapshot: FellowKettleSnapshot?
     @Published private(set) var configuredHost: String?
+    @Published private(set) var discoveryState: FellowKettleDiscoveryState = .idle
+    @Published private(set) var discoveryCandidates: [FellowKettleDiscoveryCandidate] = []
     @Published var host: String
     @Published private(set) var logger = BLELogger()
 
     private let session: URLSession
     private let defaults: UserDefaults
+    private let discoveryManager: FellowKettleDiscoveryManager
     private let networkOperationGate = NetworkOperationGate()
+    private var cancellables: Set<AnyCancellable> = []
     private var pollingTask: Task<Void, Never>?
 
-    init(session: URLSession = FellowKettleManager.makeDefaultSession(), defaults: UserDefaults = .standard) {
+    init(
+        session: URLSession = FellowKettleManager.makeDefaultSession(),
+        defaults: UserDefaults = .standard,
+        discoveryManager: FellowKettleDiscoveryManager
+    ) {
         self.session = session
         self.defaults = defaults
+        self.discoveryManager = discoveryManager
 
         let persistedHost = (defaults.string(forKey: Self.hostDefaultsKey) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         configuredHost = persistedHost.isEmpty ? nil : persistedHost
         host = persistedHost
         state = persistedHost.isEmpty ? .unconfigured : .configured(host: persistedHost)
+        bindDiscoveryManager()
 
         if !persistedHost.isEmpty {
             logger.log("Loaded Fellow kettle host \(persistedHost)")
@@ -104,6 +114,7 @@ final class FellowKettleManager: ObservableObject {
         let previousHost = configuredHost
         host = trimmedHost
         stopPolling()
+        discoveryManager.stop()
 
         if trimmedHost.isEmpty {
             configuredHost = nil
@@ -111,6 +122,7 @@ final class FellowKettleManager: ObservableObject {
             snapshot = nil
             state = .unconfigured
             logger.log("Cleared Fellow kettle host")
+            beginAutomaticDiscoveryIfNeeded()
         } else {
             if let previousHost, previousHost != trimmedHost {
                 snapshot = nil
@@ -169,8 +181,7 @@ final class FellowKettleManager: ObservableObject {
             try await withSerializedNetworkOperation { [self] in
                 try self.requireFreshHost(currentHost)
                 self.state = .polling(host: currentHost)
-                let body = try await self.send(.state, host: currentHost)
-                let parsedSnapshot = try FellowKettleParser.parseState(body)
+                let parsedSnapshot = try await self.refreshSnapshot(for: currentHost)
                 try self.requireFreshHost(currentHost)
                 self.snapshot = parsedSnapshot
                 self.resumePollingAfterExplicitInteraction(for: currentHost)
@@ -209,6 +220,35 @@ final class FellowKettleManager: ObservableObject {
         }
     }
 
+    func setUnits(_ units: FellowKettleUnits) async {
+        do {
+            try await runCommand(.setUnits(units), label: "set units \(units.rawValue)")
+        } catch is CancellationError {
+            return
+        } catch {
+            logger.log("Fellow unit update failed: \(error.localizedDescription)")
+        }
+    }
+
+    func setHoldDuration(_ holdDuration: FellowKettleHoldDuration) async {
+        do {
+            try await runCommand(.setHoldDuration(holdDuration), label: "set hold \(holdDuration.rawValue)")
+        } catch is CancellationError {
+            return
+        } catch {
+            logger.log("Fellow hold update failed: \(error.localizedDescription)")
+        }
+    }
+
+    func beginAutomaticDiscoveryIfNeeded() {
+        guard configuredHost == nil else { return }
+        guard pollingTask == nil else { return }
+        guard case .idle = discoveryState else { return }
+        state = .discovering
+        logger.log("Starting Fellow auto-discovery")
+        discoveryManager.start()
+    }
+
     @discardableResult
     private func runCommand(_ command: FellowKettleCLIRequest.Command, label: String) async throws -> String {
         let currentHost = try requireConfiguredHost()
@@ -220,8 +260,7 @@ final class FellowKettleManager: ObservableObject {
                 let body = try await self.send(command, host: currentHost)
                 try self.requireFreshHost(currentHost)
                 self.state = .polling(host: currentHost)
-                let refreshBody = try await self.send(.state, host: currentHost)
-                let parsedSnapshot = try FellowKettleParser.parseState(refreshBody)
+                let parsedSnapshot = try await self.refreshSnapshot(for: currentHost)
                 try self.requireFreshHost(currentHost)
                 self.snapshot = parsedSnapshot
                 self.resumePollingAfterExplicitInteraction(for: currentHost)
@@ -267,7 +306,11 @@ final class FellowKettleManager: ObservableObject {
     private func requireConfiguredHost() throws -> String {
         guard let currentHost = configuredHost, !currentHost.isEmpty else {
             snapshot = nil
-            state = .unconfigured
+            if case .discovering = state {
+                state = .discovering
+            } else {
+                state = .unconfigured
+            }
             logger.log("Skipped Fellow action: no host configured")
             throw ManagerError.noConfiguredHost
         }
@@ -327,5 +370,76 @@ final class FellowKettleManager: ObservableObject {
         _ operation: @escaping @MainActor () async throws -> T
     ) async throws -> T {
         try await networkOperationGate.run(operation)
+    }
+
+    private func bindDiscoveryManager() {
+        discoveryManager.$discoveryState
+            .sink { [weak self] newState in
+                self?.handleDiscoveryStateChange(newState)
+            }
+            .store(in: &cancellables)
+
+        discoveryManager.$candidates
+            .sink { [weak self] candidates in
+                self?.handleDiscoveryCandidatesChange(candidates)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func handleDiscoveryStateChange(_ newState: FellowKettleDiscoveryState) {
+        discoveryState = newState
+
+        guard configuredHost == nil else { return }
+
+        switch newState {
+        case .idle:
+            if case .discovering = state {
+                state = .unconfigured
+            }
+        case .discovering:
+            state = .discovering
+        case .conflict:
+            state = .conflict(message: "Multiple kettles found; choose one manually.")
+        }
+    }
+
+    private func handleDiscoveryCandidatesChange(_ candidates: [FellowKettleDiscoveryCandidate]) {
+        discoveryCandidates = candidates
+
+        guard configuredHost == nil else { return }
+        guard let candidate = FellowKettleDiscoveryCandidate.autoAdoptableCandidate(from: candidates) else { return }
+        adoptDiscoveredCandidate(candidate)
+    }
+
+    private func adoptDiscoveredCandidate(_ candidate: FellowKettleDiscoveryCandidate) {
+        guard let resolvedBaseURL = candidate.resolvedBaseURL else { return }
+        let adoptedHost = resolvedBaseURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !adoptedHost.isEmpty else { return }
+
+        logger.log("Auto-adopted Fellow kettle \(candidate.displayName) at \(adoptedHost)")
+        host = adoptedHost
+        saveHost()
+    }
+
+    private func refreshSnapshot(for host: String) async throws -> FellowKettleSnapshot {
+        let stateBody = try await send(.state, host: host)
+        let parsedState = try FellowKettleParser.parseState(stateBody)
+
+        let parsedSettings: FellowKettleSettingsSnapshot?
+        do {
+            let settingsBody = try await send(.settings, host: host)
+            parsedSettings = try FellowKettleParser.parseSettings(settingsBody)
+        } catch {
+            logger.log("Fellow settings refresh skipped: \(error.localizedDescription)")
+            parsedSettings = nil
+        }
+
+        return FellowKettleSnapshot(
+            currentTemperatureCelsius: parsedState.currentTemperatureCelsius,
+            targetTemperatureCelsius: parsedState.targetTemperatureCelsius,
+            mode: parsedState.mode,
+            units: parsedSettings?.units ?? parsedState.units,
+            holdDuration: parsedSettings?.holdDuration ?? parsedState.holdDuration
+        )
     }
 }

@@ -55,10 +55,12 @@ let package = Package(
                 "BLELogger.swift",
                 "FellowKettleDiscoveryCandidate.swift",
                 "FellowKettleDiscoveryManager.swift",
+                "FellowKettleMDNSBrowser.swift",
                 "FellowKettleDiscoveryProtocols.swift",
                 "FellowKettleDiscoveryState.swift",
                 "FellowKettleManager.swift",
-                "FellowKettleState.swift"
+                "FellowKettleState.swift",
+                "NoopFellowKettleBLEResolver.swift"
             ]
         ),
         .target(

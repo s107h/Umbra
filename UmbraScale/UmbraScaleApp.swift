@@ -16,7 +16,13 @@ struct UmbraScaleApp: App {
     @MainActor
     init() {
         let scale = AcaiaScaleManager()
-        let kettle = FellowKettleManager()
+        let kettle = FellowKettleManager(
+            discoveryManager: FellowKettleDiscoveryManager(
+                mdnsBrowser: FellowKettleMDNSBrowser(),
+                bleResolver: NoopFellowKettleBLEResolver()
+            )
+        )
+        kettle.beginAutomaticDiscoveryIfNeeded()
         _scale = StateObject(wrappedValue: scale)
         _kettle = StateObject(wrappedValue: kettle)
         menuBarController = ScaleMenuBarController(scale: scale, kettle: kettle)
