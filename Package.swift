@@ -54,6 +54,8 @@ let package = Package(
             sources: [
                 "BLELogger.swift",
                 "FellowKettleDiscoveryCandidate.swift",
+                "FellowKettleDiscoveryManager.swift",
+                "FellowKettleDiscoveryProtocols.swift",
                 "FellowKettleDiscoveryState.swift",
                 "FellowKettleManager.swift",
                 "FellowKettleState.swift"
@@ -82,6 +84,7 @@ let package = Package(
                 "ScaleHUDPresentationTests.swift"
             ],
             sources: [
+                "FellowKettleDiscoveryManagerTests.swift",
                 "FellowKettleDiscoverySupportTests.swift",
                 "FellowKettleManagerTests.swift"
             ]
@@ -93,6 +96,7 @@ let package = Package(
             exclude: [
                 "AcaiaPhase1Tests.swift",
                 "FellowKettleDiscoverySupportTests.swift",
+                "FellowKettleDiscoveryManagerTests.swift",
                 "FellowKettleManagerTests.swift",
                 "FellowKettleSupportTests.swift"
             ],
@@ -107,6 +111,7 @@ let package = Package(
             exclude: [
                 "AcaiaPhase1Tests.swift",
                 "FellowKettleDiscoverySupportTests.swift",
+                "FellowKettleDiscoveryManagerTests.swift",
                 "FellowKettleManagerTests.swift",
                 "ScaleHUDPresentationTests.swift"
             ],
