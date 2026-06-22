@@ -60,6 +60,19 @@ Use these steps with a real Fellow Stagg EKG Pro Wi-Fi on the same network as th
 20. While the Fellow section is in the error state, verify the Umbra BLE path still works: the scale can stay connected, live weight continues updating, and the HUD remains responsive.
 21. Restore the valid kettle host if additional hardware testing is needed.
 
+## Fellow Kettle BLE Research Validation
+
+1. Launch `UmbraScale` and open the expanded HUD.
+2. Leave the normal `Fellow Kettle` Wi-Fi controls untouched and expand `BLE Research`.
+3. Click `Scan BLE` and confirm at least one likely Fellow candidate appears with name and RSSI.
+4. Select the intended kettle and confirm the research status moves through connecting, service discovery, characteristic discovery, and capture.
+5. Confirm the BLE log records every discovered service UUID and characteristic UUID plus properties.
+6. Confirm read-capable characteristics produce `read` log lines and notify or indicate characteristics produce payload log lines.
+7. If any payload contains a hostname, `.local` name, or IPv4-like value, copy the BLE log and record the exact characteristic UUID that produced it.
+8. Compare the candidate value against the known working Wi-Fi host or IP and test it manually with the existing HTTP kettle path.
+9. Count the research slice as successful only if the BLE-derived value reproducibly works with `/cli?cmd=state`.
+10. If no reproducible endpoint appears, record the capture as evidence for a bounded failure conclusion rather than extending the slice with speculative writes.
+
 ## Current limits
 
 - Only the captured 13-byte Umbra weight packet family is parsed right now.
