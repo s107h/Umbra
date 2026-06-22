@@ -25,4 +25,28 @@ enum FellowKettleBLEProtocol {
     static func payloadLog(kind: String, characteristicUUID: String, data: Data) -> String {
         "Fellow BLE \(kind) characteristic=\(characteristicUUID.uppercased()) bytes=\(data.count) hex=\(data.hexString)"
     }
+
+    static func endpointCandidates(in data: Data) -> [String] {
+        guard let text = String(data: data, encoding: .utf8), !text.isEmpty else { return [] }
+
+        let patterns = [
+            #"\b(?:\d{1,3}\.){3}\d{1,3}\b"#,
+            #"\b[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+\b"#
+        ]
+
+        var matches: [String] = []
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            let range = NSRange(text.startIndex..., in: text)
+            for result in regex.matches(in: text, range: range) {
+                guard let matchRange = Range(result.range, in: text) else { continue }
+                let value = String(text[matchRange])
+                if !matches.contains(value) {
+                    matches.append(value)
+                }
+            }
+        }
+
+        return matches
+    }
 }

@@ -47,7 +47,51 @@ final class FellowKettleBLEResearchManager: ObservableObject {
                 for await candidate in environment.discoveries {
                     guard !Task.isCancelled else { break }
                     await MainActor.run {
-                        self.candidates.append(candidate)
+                        self.handleDiscovery(candidate)
+                    }
+                }
+            }
+        )
+
+        tasks.append(
+            Task { [environment] in
+                for await services in environment.serviceDiscoveries {
+                    guard !Task.isCancelled else { break }
+                    await MainActor.run {
+                        self.handleServices(services)
+                    }
+                }
+            }
+        )
+
+        tasks.append(
+            Task { [environment] in
+                for await characteristics in environment.characteristicDiscoveries {
+                    guard !Task.isCancelled else { break }
+                    await MainActor.run {
+                        self.handleCharacteristics(characteristics)
+                    }
+                }
+            }
+        )
+
+        tasks.append(
+            Task { [environment] in
+                for await (uuid, data) in environment.readEvents {
+                    guard !Task.isCancelled else { break }
+                    await MainActor.run {
+                        self.handleRead(uuid: uuid, data: data)
+                    }
+                }
+            }
+        )
+
+        tasks.append(
+            Task { [environment] in
+                for await (uuid, data) in environment.notifyEvents {
+                    guard !Task.isCancelled else { break }
+                    await MainActor.run {
+                        self.handleNotify(uuid: uuid, data: data)
                     }
                 }
             }
@@ -70,5 +114,61 @@ final class FellowKettleBLEResearchManager: ObservableObject {
                 await environment.connect(id: id)
             }
         )
+    }
+
+    private func handleDiscovery(_ candidate: FellowKettleBLECandidate) {
+        if let index = candidates.firstIndex(where: { $0.id == candidate.id }) {
+            candidates[index] = candidate
+        } else {
+            candidates.append(candidate)
+        }
+    }
+
+    private func handleServices(_ services: [String]) {
+        session.serviceSummaries = services.map(FellowKettleBLEServiceSummary.init(uuid:))
+    }
+
+    private func handleCharacteristics(_ characteristics: [FellowKettleBLECharacteristicDiscovery]) {
+        session.characteristicSummaries = characteristics.map {
+            FellowKettleBLECharacteristicSummary(
+                serviceUUID: $0.serviceUUID,
+                uuid: $0.uuid,
+                properties: $0.properties
+            )
+        }
+    }
+
+    private func handleRead(uuid: String, data: Data) {
+        let event = FellowKettleBLEPayloadEvent(
+            characteristicUUID: uuid,
+            kind: .read,
+            data: data,
+            renderedLine: FellowKettleBLEProtocol.payloadLog(kind: "read", characteristicUUID: uuid, data: data)
+        )
+        session.readEvents.append(event)
+        appendEndpointCandidates(from: data, source: "Read \(uuid)")
+        logger.log(event.renderedLine)
+    }
+
+    private func handleNotify(uuid: String, data: Data) {
+        let event = FellowKettleBLEPayloadEvent(
+            characteristicUUID: uuid,
+            kind: .notify,
+            data: data,
+            renderedLine: FellowKettleBLEProtocol.payloadLog(kind: "notify", characteristicUUID: uuid, data: data)
+        )
+        session.notificationEvents.append(event)
+        appendEndpointCandidates(from: data, source: "Notify \(uuid)")
+        logger.log(event.renderedLine)
+    }
+
+    private func appendEndpointCandidates(from data: Data, source: String) {
+        for value in FellowKettleBLEProtocol.endpointCandidates(in: data) {
+            let candidate = FellowKettleBLEEndpointCandidate(source: source, value: value)
+            if !session.endpointCandidates.contains(candidate) {
+                session.endpointCandidates.append(candidate)
+            }
+            logger.log("Fellow BLE endpoint candidate source=\(source) value=\(value)")
+        }
     }
 }

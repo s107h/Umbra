@@ -37,4 +37,13 @@ struct FellowKettleBLEResearchSupportTests {
 
         #expect(session.endpointCandidates.count == 2)
     }
+
+    @Test func endpointCandidateExtractionFindsHostnamesAndIPv4Strings() {
+        let candidates = FellowKettleBLEProtocol.endpointCandidates(
+            in: Data("wifi host stagg.local ip 192.168.1.20".utf8)
+        )
+
+        #expect(candidates.contains("stagg.local"))
+        #expect(candidates.contains("192.168.1.20"))
+    }
 }

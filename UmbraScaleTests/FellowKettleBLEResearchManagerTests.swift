@@ -29,6 +29,30 @@ struct FellowKettleBLEResearchManagerTests {
         #expect(manager.state == .connecting(name: "Fellow Stagg EKG Pro"))
         #expect(manager.session.endpointCandidates.isEmpty)
     }
+
+    @Test func readableAndNotifiableCharacteristicsProduceStructuredEvidence() async throws {
+        let environment = TestFellowKettleBLEEnvironment()
+        let manager = FellowKettleBLEResearchManager(environment: environment)
+        let candidate = FellowKettleBLECandidate(id: UUID(), name: "Fellow Stagg", rssi: -50)
+
+        manager.startScanning()
+        await environment.emitDiscovery(candidate)
+        try await waitUntil { manager.candidates.count == 1 }
+
+        manager.inspectCandidate(candidate.id)
+        await environment.emitServices(["180A"])
+        await environment.emitCharacteristics([
+            FellowKettleBLECharacteristicDiscovery(serviceUUID: "180A", uuid: "2A29", properties: ["read"]),
+            FellowKettleBLECharacteristicDiscovery(serviceUUID: "180A", uuid: "FFF1", properties: ["notify"])
+        ])
+        await environment.emitRead(uuid: "2A29", data: Data("stagg.local".utf8))
+        await environment.emitNotify(uuid: "FFF1", data: Data("192.168.1.20".utf8))
+
+        try await waitUntil { manager.session.notificationEvents.count == 1 }
+        #expect(manager.session.readEvents.count == 1)
+        #expect(manager.session.endpointCandidates.map(\.value).contains("stagg.local"))
+        #expect(manager.session.endpointCandidates.map(\.value).contains("192.168.1.20"))
+    }
 }
 
 private actor TestFellowKettleBLEEnvironment: FellowKettleBLEResearchEnvironment {
@@ -78,6 +102,22 @@ private actor TestFellowKettleBLEEnvironment: FellowKettleBLEResearchEnvironment
 
     func emitDiscovery(_ candidate: FellowKettleBLECandidate) {
         discoveryContinuation?.yield(candidate)
+    }
+
+    func emitServices(_ services: [String]) {
+        serviceContinuation?.yield(services)
+    }
+
+    func emitCharacteristics(_ characteristics: [FellowKettleBLECharacteristicDiscovery]) {
+        characteristicContinuation?.yield(characteristics)
+    }
+
+    func emitRead(uuid: String, data: Data) {
+        readContinuation?.yield((uuid, data))
+    }
+
+    func emitNotify(uuid: String, data: Data) {
+        notifyContinuation?.yield((uuid, data))
     }
 }
 
