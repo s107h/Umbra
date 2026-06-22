@@ -2,15 +2,15 @@
 import Foundation
 
 enum FellowKettleBLEProtocol {
-    private static let knownNameTokens = ["FELLOW", "STAGG", "EKG"]
+    nonisolated private static let knownNameTokens = ["FELLOW", "STAGG", "EKG"]
 
-    static func isLikelyKettleName(_ name: String) -> Bool {
+    nonisolated static func isLikelyKettleName(_ name: String) -> Bool {
         let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !normalized.isEmpty else { return false }
         return knownNameTokens.contains { normalized.contains($0) }
     }
 
-    static func propertyNames(for properties: CBCharacteristicProperties) -> [String] {
+    nonisolated static func propertyNames(for properties: CBCharacteristicProperties) -> [String] {
         var names: [String] = []
 
         if properties.contains(.read) { names.append("read") }
@@ -22,11 +22,11 @@ enum FellowKettleBLEProtocol {
         return names
     }
 
-    static func payloadLog(kind: String, characteristicUUID: String, data: Data) -> String {
+    nonisolated static func payloadLog(kind: String, characteristicUUID: String, data: Data) -> String {
         "Fellow BLE \(kind) characteristic=\(characteristicUUID.uppercased()) bytes=\(data.count) hex=\(data.hexString)"
     }
 
-    static func endpointCandidates(in data: Data) -> [String] {
+    nonisolated static func endpointCandidates(in data: Data) -> [String] {
         guard let text = String(data: data, encoding: .utf8), !text.isEmpty else { return [] }
 
         let patterns = [

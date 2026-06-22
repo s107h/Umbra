@@ -9,6 +9,14 @@ struct FellowKettleBLECandidate: Equatable, Identifiable, Sendable {
     let id: UUID
     let name: String
     let rssi: Int
+    let serviceUUIDs: [String]
+
+    init(id: UUID, name: String, rssi: Int, serviceUUIDs: [String] = []) {
+        self.id = id
+        self.name = name
+        self.rssi = rssi
+        self.serviceUUIDs = serviceUUIDs
+    }
 }
 
 struct FellowKettleBLEAdvertisementEvent: Equatable, Sendable {

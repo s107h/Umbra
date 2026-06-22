@@ -3,6 +3,7 @@ import SwiftUI
 struct ScaleHUDRootView: View {
     @ObservedObject var scale: AcaiaScaleManager
     @ObservedObject var kettle: FellowKettleManager
+    @ObservedObject var kettleBLEResearch: FellowKettleBLEResearchManager
     let mode: ScaleHUDMode
     let onToggleGear: () -> Void
 
@@ -12,7 +13,12 @@ struct ScaleHUDRootView: View {
             case .compact:
                 ScaleHUDCompactContent(scale: scale, onToggleGear: onToggleGear)
             case .expanded:
-                ScaleHUDExpandedContent(scale: scale, kettle: kettle, onToggleGear: onToggleGear)
+                ScaleHUDExpandedContent(
+                    scale: scale,
+                    kettle: kettle,
+                    kettleBLEResearch: kettleBLEResearch,
+                    onToggleGear: onToggleGear
+                )
             }
         }
         .padding(20)

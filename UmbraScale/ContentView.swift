@@ -10,9 +10,10 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var scale: AcaiaScaleManager
     @ObservedObject var kettle: FellowKettleManager
+    @ObservedObject var kettleBLEResearch: FellowKettleBLEResearchManager
 
     var body: some View {
-        ScaleHUDExpandedContent(scale: scale, kettle: kettle, onToggleGear: {})
+        ScaleHUDExpandedContent(scale: scale, kettle: kettle, kettleBLEResearch: kettleBLEResearch, onToggleGear: {})
             .padding(24)
     }
 }
@@ -25,6 +26,7 @@ struct ContentView: View {
                 mdnsBrowser: FellowKettleMDNSBrowser(),
                 bleResolver: NoopFellowKettleBLEResolver()
             )
-        )
+        ),
+        kettleBLEResearch: FellowKettleBLEResearchManager()
     )
 }

@@ -11,6 +11,7 @@ import SwiftUI
 struct UmbraScaleApp: App {
     @StateObject private var scale: AcaiaScaleManager
     @StateObject private var kettle: FellowKettleManager
+    @StateObject private var kettleBLEResearch: FellowKettleBLEResearchManager
     private let menuBarController: ScaleMenuBarController
 
     @MainActor
@@ -22,10 +23,12 @@ struct UmbraScaleApp: App {
                 bleResolver: NoopFellowKettleBLEResolver()
             )
         )
+        let kettleBLEResearch = FellowKettleBLEResearchManager()
         kettle.beginAutomaticDiscoveryIfNeeded()
         _scale = StateObject(wrappedValue: scale)
         _kettle = StateObject(wrappedValue: kettle)
-        menuBarController = ScaleMenuBarController(scale: scale, kettle: kettle)
+        _kettleBLEResearch = StateObject(wrappedValue: kettleBLEResearch)
+        menuBarController = ScaleMenuBarController(scale: scale, kettle: kettle, kettleBLEResearch: kettleBLEResearch)
     }
 
     var body: some Scene {

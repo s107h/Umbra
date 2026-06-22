@@ -3,12 +3,15 @@ import SwiftUI
 
 struct FellowKettleSection: View {
     @ObservedObject var kettle: FellowKettleManager
+    @ObservedObject var researchManager: FellowKettleBLEResearchManager
 
     @State private var hostInput: String
     @State private var targetTemperatureInput: String
     @State private var selectedUnits: FellowKettleUnits
     @State private var selectedHoldDuration: FellowKettleHoldDuration
     @State private var isLogExpanded = false
+    @State private var isResearchExpanded = false
+    @State private var isResearchLogExpanded = false
     @FocusState private var focusedField: Field?
 
     private enum Field {
@@ -16,8 +19,9 @@ struct FellowKettleSection: View {
         case targetTemperature
     }
 
-    init(kettle: FellowKettleManager) {
+    init(kettle: FellowKettleManager, researchManager: FellowKettleBLEResearchManager) {
         self.kettle = kettle
+        self.researchManager = researchManager
         _hostInput = State(initialValue: kettle.host)
         _targetTemperatureInput = State(
             initialValue: Self.editableTemperatureString(for: kettle.snapshot?.targetTemperatureCelsius)
@@ -35,6 +39,7 @@ struct FellowKettleSection: View {
                 heatControls
                 targetControls
                 settingsControls
+                bleResearchDisclosure
                 debugLogDisclosure
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -161,10 +166,46 @@ struct FellowKettleSection: View {
         }
     }
 
+    private var bleResearchDisclosure: some View {
+        DisclosureGroup("BLE Research", isExpanded: $isResearchExpanded) {
+            VStack(alignment: .leading, spacing: 10) {
+                LabeledContent("Research Status", value: researchManager.state.displayText)
+                LabeledContent("BLE Candidates", value: "\(researchManager.candidates.count)")
+                LabeledContent("Services", value: "\(researchManager.session.serviceSummaries.count)")
+                LabeledContent("Characteristics", value: "\(researchManager.session.characteristicSummaries.count)")
+                LabeledContent("Reads", value: "\(researchManager.session.readEvents.count)")
+                LabeledContent("Notifications", value: "\(researchManager.session.notificationEvents.count)")
+                LabeledContent("Endpoint Candidates", value: "\(researchManager.session.endpointCandidates.count)")
+
+                HStack(spacing: 12) {
+                    Button("Scan BLE") {
+                        researchManager.startScanning()
+                    }
+
+                    Button("Disconnect BLE") {
+                        researchManager.disconnect()
+                    }
+                }
+
+                FellowKettleBLECandidateList(manager: researchManager)
+                FellowKettleBLEEndpointCandidateList(candidates: researchManager.session.endpointCandidates)
+
+                DisclosureGroup("BLE Debug Log", isExpanded: $isResearchLogExpanded) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        FellowKettleLogControls(logger: researchManager.logger, copyTitle: "Copy BLE Log", clearTitle: "Clear BLE Log")
+                        FellowKettleLogView(logger: researchManager.logger)
+                    }
+                    .padding(.top, 8)
+                }
+            }
+            .padding(.top, 8)
+        }
+    }
+
     private var debugLogDisclosure: some View {
         DisclosureGroup("Debug Log", isExpanded: $isLogExpanded) {
             VStack(alignment: .leading, spacing: 10) {
-                FellowKettleLogControls(logger: kettle.logger)
+                FellowKettleLogControls(logger: kettle.logger, copyTitle: "Copy Kettle Log", clearTitle: "Clear Kettle Log")
                 FellowKettleLogView(logger: kettle.logger)
             }
             .padding(.top, 8)
@@ -322,17 +363,72 @@ struct FellowKettleSection: View {
     }
 }
 
+private struct FellowKettleBLECandidateList: View {
+    @ObservedObject var manager: FellowKettleBLEResearchManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if manager.candidates.isEmpty {
+                Text("No BLE candidates yet")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(manager.candidates) { candidate in
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(candidate.name)
+                            Text("RSSI \(candidate.rssi)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button("Inspect") {
+                            manager.inspectCandidate(candidate.id)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct FellowKettleBLEEndpointCandidateList: View {
+    let candidates: [FellowKettleBLEEndpointCandidate]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if candidates.isEmpty {
+                Text("No endpoint-like payloads captured")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(Array(candidates.enumerated()), id: \.offset) { _, candidate in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(candidate.value)
+                            .font(.system(.body, design: .monospaced))
+                        Text(candidate.source)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct FellowKettleLogControls: View {
     @ObservedObject var logger: BLELogger
+    let copyTitle: String
+    let clearTitle: String
 
     var body: some View {
         HStack(spacing: 12) {
-            Button("Copy Kettle Log") {
+            Button(copyTitle) {
                 copyLogToPasteboard()
             }
             .disabled(logger.lines.isEmpty)
 
-            Button("Clear Kettle Log") {
+            Button(clearTitle) {
                 logger.clear()
             }
             .disabled(logger.lines.isEmpty)
